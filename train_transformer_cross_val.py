@@ -1,0 +1,464 @@
+ #!/bin/env python
+ 
+ #import packages
+import numpy as np
+import torch
+import torch.nn as nn
+from functools import partial
+import time
+import pickle
+from torch.utils.data import DataLoader
+import sys
+import csv
+from sklearn.model_selection import KFold
+from torch.optim.lr_scheduler import ReduceLROnPlateau
+from torch._six import inf
+import torch.nn.functional as F
+import os
+from statistics import mean
+
+
+from trajectory import Trajectory, extract_fixed_sized_segments, split_into_train_and_test, remove_short_trajectories, get_categories, get_UTK_categories
+from transformer import TemporalTransformer_4, TemporalTransformer_3, TemporalTransformer_2, BodyPartTransformer, SpatialTemporalTransformer, TemporalTransformer, Block, Attention, Mlp
+
+import argparse
+parser = argparse.ArgumentParser()
+parser.add_argument("--filename", help="filename to store trained model and results")
+parser.add_argument("--embed_dim", help="embedding dimension used by the model", type=int)
+parser.add_argument("--debug", help="load subset of trajectories in debug mode", action="store_true", default=False)
+parser.add_argument("--epochs", help="maximum number of epochs during training", default=1000, type=int)
+parser.add_argument("--patience", help="patience before early stopping is enabled", default=5, type=int)
+parser.add_argument("--k_fold", help="number of folds used for corss-validation", default=3, type=int)
+parser.add_argument("--lr", help="starting learning rate for adaptive learning", default=0.001, type=float)
+parser.add_argument("--lr_patience", help="patience before learning rate is decreased", default=3, type=int)
+parser.add_argument("--model_type", help="type of model to train, temporal, temporal_2, temporal_3, temporal_4, spatial-temporal or parts", type=str)
+parser.add_argument("--segment_length", help="length of sliding window", default=12, type=int)
+parser.add_argument("--dataset", help="dataset used HR-Crime or UTK", default="HR-Crime", type=str)
+
+args = parser.parse_args()
+
+print('Number of arguments given:', len(sys.argv), 'arguments.')
+print('Arguments given:', str(sys.argv))
+
+print('parser args:', args)
+
+#sys.exit()
+
+print('cuda available ', torch.cuda.is_available())
+device = "cuda:0" if torch.cuda.is_available() else "cpu"
+print ('Available devices ', torch.cuda.device_count())
+print ('Current cuda device ', torch.cuda.current_device())
+
+
+#Load test trajectories
+dataset = args.dataset
+if dataset=="HR-Crime":
+    PIK_train = "./data/train_anomaly_trajectories.dat"
+    PIK_test = "./data/test_anomaly_trajectories.dat"
+    all_categories = get_categories()
+elif dataset == "UTK":
+    PIK_train = "./data/train_UTK_trajectories.dat"
+    PIK_test = "./data/test_UTK_trajectories.dat"
+    all_categories = get_UTK_categories()
+else:
+    raise Exception('dataset not recognized, must be HR-Crime or UTK')
+
+with open(PIK_train, "rb") as f:
+    train_crime_trajectories = pickle.load(f)
+
+with open(PIK_test, "rb") as f:
+    test_crime_trajectories = pickle.load(f)
+
+print('\nLoaded %d train trajectories and %d test trajectories' % (len(train_crime_trajectories), len(test_crime_trajectories)))
+
+
+train_frame_lengths = []
+test_frame_lengths = []
+
+for key in train_crime_trajectories:
+    #print(key, ' : ', train_crime_trajectories[key])
+    num_of_frames = len(train_crime_trajectories[key])
+    #print('number of frames:', num_of_frames)
+    
+    train_frame_lengths.append(num_of_frames)
+
+for key in test_crime_trajectories:
+    num_of_frames = len(test_crime_trajectories[key])
+    
+    test_frame_lengths.append(num_of_frames)
+
+print('\nTRAIN minimum:', min(train_frame_lengths))
+print('TRAIN maximum:', max(train_frame_lengths))
+
+print('TRAIN mean:', mean(train_frame_lengths))
+
+train_smaller_than_mean = [x for x in train_frame_lengths if x <= mean(train_frame_lengths)]
+
+print('\nTRAIN smaller_than_mean:', len(train_smaller_than_mean))
+
+test_smaller_than_mean = [x for x in test_frame_lengths if x <= mean(test_frame_lengths)]
+
+print('\nTEST smaller_than_mean:', len(test_smaller_than_mean))
+
+
+
+#set segment size
+segment_length = args.segment_length
+train_crime_trajectories = remove_short_trajectories(train_crime_trajectories, input_length=segment_length, input_gap=0, pred_length=0)
+test_crime_trajectories = remove_short_trajectories(test_crime_trajectories, input_length=segment_length, input_gap=0, pred_length=0)
+
+#use subset for when debugging to speed things up, comment  out to train on entire training set
+if args.debug:
+    #train_crime_trajectories = {key: value for key, value in train_crime_trajectories.items() if key < 'Arrest'}
+    train_crime_trajectories = {key: value for key, value in train_crime_trajectories.items() if key[-8:] < '005_0005'}
+    test_crime_trajectories = {key: value for key, value in test_crime_trajectories.items() if key[-8:] < '005_0005'}
+    print('\nin debugging mode: %d train trajectories and %d test trajectories' % (len(train_crime_trajectories), len(test_crime_trajectories)))    
+else:
+    print('\nRemoved short trajectories: %d train trajectories and %d test trajectories left' % (len(train_crime_trajectories), len(test_crime_trajectories)))
+
+print("\ncategories", all_categories)
+
+
+
+#time.sleep(30) # Sleep for 30 seconds to generate memory usage in Peregrine
+
+model_name = args.filename #e.g. "transformer_model_embed_dim_32"
+
+embed_dim = args.embed_dim
+
+def train_model(embed_dim, epochs):
+    
+    print('Start training')
+
+    #set batch size
+    batch_size = 100
+    
+    # prepare cross validation
+
+    
+    n = args.k_fold
+    
+    print("Apply K-Fold with k = ", n) 
+    kf = KFold(n_splits=n, random_state=42, shuffle=True)
+    
+    #file to save results
+    if dataset == "HR-Crime":
+        file_name_train = '/data/s3447707/MasterThesis/training_results/' + model_name + '.csv'
+        file_name_test = '/data/s3447707/MasterThesis/testing_results/' + model_name + '.csv'
+        num_classes = 13
+        num_joints = 17
+        num_parts = 5
+        in_chans = 2
+    elif dataset == "UTK":
+        file_name_train = '/data/s3447707/MasterThesis/UTK_training_results/' + model_name + '.csv'
+        file_name_test = '/data/s3447707/MasterThesis/UTK_testing_results/' + model_name + '.csv'
+        num_classes = 10
+        num_joints = 20
+        in_chans = 3
+        
+
+    traj_ids_train, traj_videos_train, traj_persons_train, traj_frames_train, traj_categories_train, X_train = extract_fixed_sized_segments(dataset, train_crime_trajectories, input_length=segment_length)
+    traj_ids_test, traj_videos_test, traj_persons_test, traj_frames_test, traj_categories_test, X_test = extract_fixed_sized_segments(dataset, test_crime_trajectories, input_length=segment_length)
+            
+    with open(file_name_train, 'w') as csv_file_train:
+        csv_writer_train = csv.writer(csv_file_train, delimiter=';')
+        csv_writer_train.writerow(['fold', 'epoch', 'LR', 'Training Loss', 'Validation Loss', 'Validation Accuracy', 'Time'])
+        # prepare to write testing results to a file
+        with open(file_name_test, 'w') as csv_file_test:
+            csv_writer_test = csv.writer(csv_file_test, delimiter=';')
+            csv_writer_test.writerow(['fold', 'label', 'video', 'person', 'prediction', 'log_likelihoods', 'logits'])
+ 
+            # Start print
+            print('--------------------------------')
+    
+            print('trajectories to train: %s' % len(train_crime_trajectories))
+            
+            # K-fold Cross Validation model evaluation
+            for fold, (train_ids, val_ids) in enumerate(kf.split(traj_ids_train), 1):
+                print('\nfold: %s, train: %s, test: %s' % (fold, len(train_ids), len(val_ids)))
+    
+                train_dataloader = torch.utils.data.DataLoader([ [traj_categories_train[i], traj_videos_train[i], traj_persons_train[i], traj_frames_train[i], X_train[i]] for i in train_ids], shuffle=True, batch_size=100)
+                val_dataloader = torch.utils.data.DataLoader([ [traj_categories_train[i], traj_videos_train[i], traj_persons_train[i], traj_frames_train[i], X_train[i]] for i in val_ids], shuffle=True, batch_size=100)
+                  
+                #intialize model
+                if args.model_type == 'temporal':
+                        model = TemporalTransformer(embed_dim=embed_dim, num_frames=segment_length, num_classes=num_classes, num_joints=num_joints, in_chans=in_chans, mlp_ratio=2., qkv_bias=True, qk_scale=None, dropout=0.1)
+                elif args.model_type == 'temporal_2':
+                        model = TemporalTransformer_2(embed_dim=embed_dim, num_frames=segment_length, num_classes=num_classes, num_joints=num_joints, in_chans=in_chans, mlp_ratio=2., qkv_bias=True, qk_scale=None, dropout=0.1)
+                elif args.model_type == 'temporal_3':
+                        model = TemporalTransformer_3(embed_dim=embed_dim, num_frames=segment_length, num_classes=num_classes, num_joints=num_joints, num_parts=num_parts, in_chans=in_chans, mlp_ratio=2., qkv_bias=True, qk_scale=None, dropout=0.1)
+                elif args.model_type == 'temporal_4':
+                        model = TemporalTransformer_4(embed_dim=embed_dim, num_frames=segment_length, num_classes=num_classes, num_joints=num_joints, num_parts=num_parts, in_chans=in_chans, mlp_ratio=2., qkv_bias=True, qk_scale=None, dropout=0.1)
+                elif args.model_type == 'spatial-temporal':
+                    model = SpatialTemporalTransformer(embed_dim_ratio=embed_dim, num_frames=segment_length, num_classes=num_classes, num_joints=num_joints, in_chans=in_chans, mlp_ratio=2., qkv_bias=True, qk_scale=None, dropout=0.1)
+                elif args.model_type == "parts":
+                    model = BodyPartTransformer(embed_dim_ratio=embed_dim, num_frames=segment_length, num_classes=num_classes, num_joints=num_joints, in_chans=in_chans, mlp_ratio=2., qkv_bias=True, qk_scale=None, dropout=0.1)
+                else:
+                    raise Exception('model_type is missing, must be temporal, temporal_2, temporal_3, temporal_4, spatial-temporal or parts')
+                
+                model.to(device)
+                
+                # Initialize parameters with Glorot / fan_avg.
+                # This code is very important! It initialises the parameters with a
+                # range of values that stops the signal fading or getting too big.
+                for p in model.parameters():
+                    if p.dim() > 1:
+                        #print('parameter:',p)
+                        nn.init.xavier_uniform_(p)
+                
+                # Define optimizer
+                optim = torch.optim.Adam(model.parameters(), lr=args.lr, betas=(0.9, 0.98), eps=1e-9)
+                
+                # Define scheduler for adapaptive learning
+                lr_patience = args.lr_patience
+                scheduler = ReduceLROnPlateau(optim, patience = lr_patience, verbose=True) #learning rate patience < early stopping patience
+                  
+                # Early stopping parameters
+                min_loss = inf
+                patience =  args.patience
+                print('Early stopping patience', patience)
+                trigger_times = 0
+                  
+                start = time.time()
+                temp = start
+                
+                #print('start looping over epochs at', time.time())
+                
+                for epoch in range(1, epochs+1):
+    
+                    train_loss = 0.0
+                    
+                    model.train()
+               
+                    for iter, batch in enumerate(train_dataloader, 1):
+                    
+                        labels, videos, persons, frames, data = batch
+                        
+                        labels = labels.to(device)
+                        videos = videos.to(device)
+                        persons = persons.to(device)
+                        frames = frames.to(device)
+                        data = data.to(device)
+    
+                        output = model(data)
+                        #output.to(device)
+                     
+                        #print(f"output shape: {output.shape}")
+                        #print("output", output)
+    
+                
+                        #print(f"labels shape: {labels.shape}")
+                        #print(f"videos shape: {videos.shape}")
+                        #print(f"persons shape: {persons.shape}")
+                        #print(f"frames shape: {frames.shape}")
+                        #print(f"data shape: {data.shape}")
+    
+                        #print("labels", labels)
+                        #print("videos", videos)
+                        #print("persons", persons)
+                        #print("frames", frames)
+                        #print("data", data)
+    
+                        
+                        
+                        index = torch.tensor([0]).to(device)
+                        labels = labels.index_select(1, index)
+                        labels = torch.squeeze(labels)
+                        
+                        #print(f"labels shape: {labels.shape}")
+                        #print("labels", labels)
+              
+                        optim.zero_grad()
+              
+                        #if torch.cuda.is_available():
+                        #    print('set cross entropy loss to cuda device')
+                        #    cross_entropy_loss = nn.CrossEntropyLoss().to(device)     
+                        #else:
+                        #    cross_entropy_loss = nn.CrossEntropyLoss()
+                            
+                        #print('cross_entropy_loss.is_cuda', cross_entropy_loss.is_cuda)
+                        
+                        cross_entropy_loss = nn.CrossEntropyLoss()
+                            
+                        loss = cross_entropy_loss(output, labels)
+                        loss.backward()
+                        optim.step()
+    
+                        #print('labels.size(0)',labels.size(0))
+                        train_loss += loss.item() * labels.size(0)
+                            
+    
+    
+                    # Evaluate model on validation set
+                    the_current_loss, all_outputs, all_labels, all_videos, all_persons = evaluation(model, val_dataloader)
+                    all_log_likelihoods = F.log_softmax(all_outputs, dim=1) #nn.CrossEntropyLoss also uses the log_softmax
+                    # the class with the highest log-likelihood is what we choose as prediction
+                    _, all_predictions = torch.max(all_log_likelihoods, dim=1)          
+                    total = all_labels.size(0)
+                    correct = (all_predictions == all_labels).sum().item()
+                    curr_lr = optim.param_groups[0]['lr']
+    
+                    #print epoch performance
+                    print(f'Fold {fold}, \
+        Epoch {epoch}, \
+        LR:{curr_lr}, \
+        Training Loss: {train_loss/len(train_dataloader):.5f}, \
+        Validation Loss:{the_current_loss:.5f}, \
+        Validation Accuracy: {(correct / total):.4f}, \
+        Time: {((time.time() - temp)/60):.5f} min')
+                    
+                    #Write epoch performance to file
+                    csv_writer_train.writerow([fold, epoch, curr_lr, train_loss/len(train_dataloader), the_current_loss, (correct / total), (time.time() - temp)/60])
+                    
+                    # Early stopping
+    
+                    if the_current_loss < min_loss:
+                        print('Loss decreased, trigger times: 0')
+                        trigger_times = 0
+                        min_loss = the_current_loss
+    
+                    else:
+            
+                        trigger_times += 1
+                        print('trigger times:', trigger_times)
+                        
+                    if trigger_times > patience or epoch==epochs:
+                        print('\nStopping after epoch %d' % (epoch))
+                        
+                        temp = time.time()
+                        
+                        #Save trained model
+                        if dataset == "HR-Crime":   
+                            PATH = "/data/s3447707/MasterThesis/trained_models/" + model_name + "_fold_" + str(fold) + ".pt"
+                        elif dataset == "UTK":
+                            PATH = "/data/s3447707/MasterThesis/UTK_trained_models/" + model_name + "_fold_" + str(fold) + ".pt"
+                            
+                        #Save trained model
+                        torch.save(model, PATH)
+                        
+                        print("Trained model saved to {}".format(PATH))
+    
+                        # Evaluate model on test set after training
+                        #print('Start evaluating model on at', time.time())
+                        test_dataloader = torch.utils.data.DataLoader([ [traj_categories_test[i], traj_videos_test[i], traj_persons_test[i], traj_frames_test[i], X_test[i] ] for i in range(len(traj_ids_test))], shuffle=True, batch_size=100) 
+                        _, all_outputs, all_labels, all_videos, all_persons = evaluation(model, test_dataloader)
+                        all_log_likelihoods = F.log_softmax(all_outputs, dim=1) #nn.CrossEntropyLoss also uses the log_softmax
+                        # the class with the highest log-likelihood is what we choose as prediction
+                        _, all_predictions = torch.max(all_log_likelihoods, dim=1)
+                                                
+                        # prepare to count predictions for each class
+                        correct_pred = {classname: 0 for classname in all_categories}
+                        total_pred = {classname: 0 for classname in all_categories}
+                        
+    
+                          
+                        # collect the correct predictions for each class
+                        for label, video, person, prediction, log_likelihoods, logits in zip(all_labels, all_videos, all_persons, all_predictions, all_log_likelihoods, all_outputs):
+                            
+                            csv_writer_test.writerow([fold, label.item(),  video.item(), person.item(), prediction.item(), log_likelihoods.tolist(), logits.tolist()])
+                                
+                            if label == prediction:
+                                correct_pred[all_categories[label]] += 1
+                                
+                            total_pred[all_categories[label]] += 1
+                    
+                        total = all_labels.size(0)
+                        correct = (all_predictions == all_labels).sum().item()
+                
+                        print('Accuracy of the network on entire test set: %.2f %% Time: %.5f min' % ( 100 * correct / total, (time.time() - temp)/60 ))
+                        
+                        # print accuracy for each class
+                        for classname, correct_count in correct_pred.items():
+                            accuracy = 100 * float(correct_count) / (total_pred[classname] + 0.0000001)
+                            print("Accuracy for class {:5s} is: {:.2f} %".format(classname,
+                                                                          accuracy))
+                    
+                        break
+    
+                    scheduler.step(the_current_loss)
+                    
+    
+                    #print('param groups:', [group['lr'] for group in optim.param_groups])  
+                    
+                    temp = time.time()
+                
+                '''
+                if dataset == "HR-Crime":   
+                    PATH = "/data/s3447707/MasterThesis/trained_models/" + model_name + "_fold_" + str(fold) + ".pt"
+                elif dataset == "UTK":
+                    PATH = "/data/s3447707/MasterThesis/UTK_trained_models/" + model_name + "_fold_" + str(fold) + ".pt"
+                    
+                #Save trained model
+                torch.save(model, PATH)
+                
+                print("Trained model saved to {}".format(PATH))
+                '''
+    
+    
+    print("Training results saved to {}".format(file_name_train))
+    print("Testing results saved to {}".format(file_name_test))
+
+
+def evaluation(model, data_loader):
+    # Settings
+    model.eval()
+    loss_total = 0
+    
+    all_outputs = torch.tensor([]).to(device)
+    all_labels = torch.LongTensor([]).to(device)
+    all_videos = torch.LongTensor([]).to(device)
+    all_persons = torch.LongTensor([]).to(device)
+
+    # Test validation data
+    with torch.no_grad():
+        for batch in data_loader:
+            labels, videos, persons, frames, data = batch
+            
+            labels = labels.to(device)
+            videos = videos.to(device)
+            persons = persons.to(device)
+            frames = frames.to(device)
+            data = data.to(device)
+
+            index = torch.tensor([0]).to(device)
+            labels = labels.index_select(1, index)
+            labels = torch.squeeze(labels)
+
+            #print('videos',videos)
+            videos = videos.index_select(1, index)
+            videos = torch.squeeze(videos)
+            persons = persons.index_select(1, index)
+            persons = torch.squeeze(persons)
+
+            #print('labels length:', len(labels))
+            #print('videos:', videos)
+            
+            outputs = model(data)
+            #print('outputs shape:', outputs.shape)
+            #print('outputs sum:', torch.sum(outputs, 0))
+            #print('\n outputs:',outputs)
+            
+            #softmax_output = F.softmax(outputs, 1)
+            #print('softmax_output sum:', torch.max(softmax_output, 1))
+            #print('\nsoftmax_output:',softmax_output)
+
+            #log_softmax_output = F.log_softmax(outputs, 1)
+            #print('log_softmax_output sum:', torch.max(log_softmax_output, 1))
+            #print('\nlog_softmax_output:', log_softmax_output)
+
+            cross_entropy_loss = nn.CrossEntropyLoss()
+            loss = cross_entropy_loss(outputs, labels)  
+            loss_total += loss.item()
+            
+            all_outputs = torch.cat((all_outputs, outputs), 0)
+            all_labels = torch.cat((all_labels, labels), 0)
+            all_videos = torch.cat((all_videos, videos), 0)
+            all_persons = torch.cat((all_persons, persons), 0)
+            
+            #print('all_outputs:', all_outputs)
+
+    return loss_total / len(data_loader), all_outputs, all_labels, all_videos, all_persons
+    
+
+#train model
+train_model(embed_dim=args.embed_dim, epochs=args.epochs)

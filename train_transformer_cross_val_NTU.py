@@ -1,29 +1,48 @@
  #!/bin/env python
  
  #import packages
-import numpy as np
 import torch
 import torch.nn as nn
-from functools import partial
-import time
-import pickle
-from torch.utils.data import DataLoader
-import sys
-import csv
-from sklearn.model_selection import KFold
+import torch.nn.functional as F
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch._six import inf
-import torch.nn.functional as F
-import os
+from torch.utils.data import DataLoader
+from functools import partial
+from random import shuffle
+from sklearn.model_selection import KFold
 from statistics import mean
-
-
-from trajectory import Trajectory, extract_fixed_sized_segments, split_into_train_and_test, remove_short_trajectories, get_categories, get_UTK_categories, get_NTU_categories
-from transformer import TemporalTransformer_4, TemporalTransformer_3, TemporalTransformer_2, BodyPartTransformer, SpatialTemporalTransformer, TemporalTransformer, Block, Attention, Mlp
-
+import time
+import pickle
+import sys
+import csv
+import numpy as np
+import os
+import logging
 import argparse
 
-print ("Before args: "+time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()))
+from trajectory import Trajectory, TrajectoryDataset, extract_fixed_sized_segments, split_into_train_and_test, remove_short_trajectories, get_categories, get_UTK_categories, get_NTU_categories
+from transformer import TemporalTransformer_4, TemporalTransformer_3, TemporalTransformer_2, BodyPartTransformer, SpatialTemporalTransformer, TemporalTransformer, Block, Attention, Mlp
+from utils import smaller_than_mean
+
+def SetupLogger(name):
+    logger = logging.getLogger(name)
+    logger.setLevel(logging.INFO)
+
+    ch = logging.StreamHandler(stream=sys.stdout)
+    ch.setLevel(logging.INFO)
+
+    formatter = logging.Formatter('%(asctime)s %(message)s')
+    ch.setFormatter(formatter)
+    logger.addHandler(ch)
+
+    return logger
+
+logger = SetupLogger('logger')
+
+# logging.basicConfig(format='%(asctime)s %(message)s', level=logging.INFO)
+
+logger.info("Reading args")
+# print ("Before args: "+time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()))
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--filename", help="filename to store trained model and results")
@@ -40,23 +59,18 @@ parser.add_argument("--dataset", help="dataset used HR-Crime or UTK", default="H
 
 args = parser.parse_args()
 
-print('Test print')
-print('Number of arguments given:', len(sys.argv), 'arguments.')
-print('Arguments given:', str(sys.argv))
+logger.info('Number of arguments given: %s arguments.', str(len(sys.argv)))
+logger.info('Arguments given: %s', ';'.join([str(x) for x in sys.argv]))
 
-print('parser args:', args)
+logger.info('parser args: %s', str(args))
 
-#sys.exit()
-print ("Before cuda available: "+time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()))
-
-
-print('cuda available ', torch.cuda.is_available())
+logger.info('CUDA available: %s', str(torch.cuda.is_available()))
 device = "cuda:0" if torch.cuda.is_available() else "cpu"
-print ('Available devices ', torch.cuda.device_count())
-print ('Current cuda device ', torch.cuda.current_device())
+logger.info('Available devices: %s', torch.cuda.device_count())
+logger.info('Current cuda device: %s ', str(torch.cuda.current_device()))
 
 
-#Load test trajectories
+# Set dataset
 dataset = args.dataset
 if dataset=="HR-Crime":
     PIK_train = "./data/train_anomaly_trajectories.dat"
@@ -77,7 +91,7 @@ elif "NTU" in dataset:
 else:
     raise Exception('dataset not recognized, must be HR-Crime or UTK')
 
-print ("Before loading trajectories: "+time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()))
+logger.info("Loading train and test files")
 
 with open(PIK_train, "rb") as f:
     train_crime_trajectories = pickle.load(f)
@@ -85,8 +99,7 @@ with open(PIK_train, "rb") as f:
 with open(PIK_test, "rb") as f:
     test_crime_trajectories = pickle.load(f)
 
-print('\nLoaded %d train trajectories and %d test trajectories' % (len(train_crime_trajectories), len(test_crime_trajectories)))
-
+logger.info("Loaded %d train and %d test files", len(train_crime_trajectories), len(test_crime_trajectories))
 
 train_frame_lengths = []
 test_frame_lengths = []
@@ -106,24 +119,23 @@ for key in test_crime_trajectories:
     
     test_frame_lengths.append(num_of_frames)
 
-print('\nTRAIN minimum:', min(train_frame_lengths))
-print('TRAIN maximum:', max(train_frame_lengths))
+logger.info('TRAIN minimum: %d', min(train_frame_lengths))
+logger.info('TRAIN maximum: %d', max(train_frame_lengths))
+logger.info('TRAIN mean: %f', mean(train_frame_lengths))
 
-print('TRAIN mean:', mean(train_frame_lengths))
+logger.info('TEST minimum: %d', min(test_frame_lengths))
+logger.info('TEST maximum: %d', max(test_frame_lengths))
+logger.info('TEST mean: %f', mean(test_frame_lengths))
 
-train_smaller_than_mean = [x for x in train_frame_lengths if x <= mean(train_frame_lengths)]
-
-print('\nTRAIN smaller_than_mean:', len(train_smaller_than_mean))
-
-test_smaller_than_mean = [x for x in test_frame_lengths if x <= mean(test_frame_lengths)]
-
-print('\nTEST smaller_than_mean:', len(test_smaller_than_mean))
+logger.info('TRAIN smaller_than_mean: %d', smaller_than_mean(train_frame_lengths, mean(train_frame_lengths)))
+logger.info('TEST smaller_than_mean: %d', smaller_than_mean(test_frame_lengths, mean(test_frame_lengths)))
 
 
 
 # Set the segment size
 segment_length = args.segment_length
 # Remove the short trajectories from both train & test datasets
+logger.info("Removing short trajectories")
 train_crime_trajectories = remove_short_trajectories(train_crime_trajectories, input_length=segment_length, input_gap=0, pred_length=0)
 test_crime_trajectories = remove_short_trajectories(test_crime_trajectories, input_length=segment_length, input_gap=0, pred_length=0)
 
@@ -136,21 +148,18 @@ test_crime_trajectories = remove_short_trajectories(test_crime_trajectories, inp
 # else:
 #     print('\nRemoved short trajectories: %d train trajectories and %d test trajectories left' % (len(train_crime_trajectories), len(test_crime_trajectories)))
 
-print("\nCategories", all_categories)
+logger.info("Categories: %s", ','.join(all_categories))
 
 
 
 #time.sleep(30) # Sleep for 30 seconds to generate memory usage in Peregrine
 
 model_name = args.filename #e.g. "transformer_model_embed_dim_32"
-
 embed_dim = args.embed_dim
 
-print ("Before train_model: "+time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()))
+logger.info("STARTING TRAINING")
 
 def train_model(embed_dim, epochs):
-    
-    print('Start training')
 
     # Set batch size
     batch_size = 100
@@ -159,7 +168,7 @@ def train_model(embed_dim, epochs):
 
     n = args.k_fold
     
-    print("Apply K-Fold with k = ", n) 
+    logger.info("Applying K-Fold with k = %d", n) 
     kf = KFold(n_splits=n, random_state=42, shuffle=True)
     
     #file to save results
@@ -201,31 +210,39 @@ def train_model(embed_dim, epochs):
     X_train : The actual data, the coordinates for each frames
 
     '''
-    traj_ids_train, traj_videos_train, traj_persons_train, traj_frames_train, traj_categories_train, X_train = extract_fixed_sized_segments(dataset, train_crime_trajectories, input_length=segment_length)
-    traj_ids_test, traj_videos_test, traj_persons_test, traj_frames_test, traj_categories_test, X_test = extract_fixed_sized_segments(dataset, test_crime_trajectories, input_length=segment_length)
-            
+    logger.info("Creating Trajectory Train and Test datasets")
+    train = TrajectoryDataset(*extract_fixed_sized_segments(dataset, train_crime_trajectories, input_length=segment_length))
+    test = TrajectoryDataset(*extract_fixed_sized_segments(dataset, test_crime_trajectories, input_length=segment_length))
+
+    # traj_ids_train, traj_videos_train, traj_persons_train, traj_frames_train, traj_categories_train, X_train = extract_fixed_sized_segments(dataset, train_crime_trajectories, input_length=segment_length)
+    # traj_ids_test, traj_videos_test, traj_persons_test, traj_frames_test, traj_categories_test, X_test = extract_fixed_sized_segments(dataset, test_crime_trajectories, input_length=segment_length)
+    
+    logger.info("Writing to training log file")
     with open(file_name_train, 'w') as csv_file_train:
         csv_writer_train = csv.writer(csv_file_train, delimiter=';')
         csv_writer_train.writerow(['fold', 'epoch', 'LR', 'Training Loss', 'Validation Loss', 'Validation Accuracy', 'Time'])
         # prepare to write testing results to a file
+        logger.info("Writing to testing log file")
         with open(file_name_test, 'w') as csv_file_test:
             csv_writer_test = csv.writer(csv_file_test, delimiter=';')
             csv_writer_test.writerow(['fold', 'label', 'video', 'person', 'prediction', 'log_likelihoods', 'logits'])
  
             # Start print
-            print('--------------------------------')
+            logger.info('--------------------------------')
     
-            print('No. of trajectories to train: %s' % len(train_crime_trajectories))
+            logger.info('No. of trajectories to train: %s', len(train_crime_trajectories))
             
-            print ("Before kfold: "+time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()))
+            logger.info("Starting K-Fold")
 
             # K-fold Cross Validation model evaluation
-            for fold, (train_ids, val_ids) in enumerate(kf.split(traj_ids_train), 1):
-                print('\nfold: %s, train: %s, test: %s' % (fold, len(train_ids), len(val_ids)))
+            for fold, (train_ids, val_ids) in enumerate(kf.split(train.trajectory_ids()), 1):
+                logger.info('\nfold: %d, train: %d, test: %d', fold, len(train_ids), len(val_ids))
     
-                train_dataloader = torch.utils.data.DataLoader([ [traj_categories_train[i], traj_videos_train[i], traj_persons_train[i], traj_frames_train[i], X_train[i]] for i in train_ids], shuffle=True, batch_size=100)
-                val_dataloader = torch.utils.data.DataLoader([ [traj_categories_train[i], traj_videos_train[i], traj_persons_train[i], traj_frames_train[i], X_train[i]] for i in val_ids], shuffle=True, batch_size=100)
-                  
+                # train_dataloader = torch.utils.data.DataLoader([ [traj_categories_train[i], traj_videos_train[i], traj_persons_train[i], traj_frames_train[i], X_train[i]] for i in train_ids], shuffle=True, batch_size=100)
+                # val_dataloader = torch.utils.data.DataLoader([ [traj_categories_train[i], traj_videos_train[i], traj_persons_train[i], traj_frames_train[i], X_train[i]] for i in val_ids], shuffle=True, batch_size=100)
+                train_dataloader = torch.utils.data.DataLoader(train, batch_size = 100, shuffle=True)
+                val_dataloader = torch.utils.data.DataLoader(test, batch_size = 100, shuffle=True)
+
                 #intialize model
                 if args.model_type == 'temporal':
                         model = TemporalTransformer(embed_dim=embed_dim, num_frames=segment_length, num_classes=num_classes, num_joints=num_joints, in_chans=in_chans, mlp_ratio=2., qkv_bias=True, qk_scale=None, dropout=0.1)
@@ -244,7 +261,7 @@ def train_model(embed_dim, epochs):
                 
                 model.to(device)
 
-                print ("After model: "+time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()))
+                logger.info("Models defined")
                 
                 # Initialize parameters with Glorot / fan_avg.
                 # This code is very important! It initialises the parameters with a
@@ -267,7 +284,7 @@ def train_model(embed_dim, epochs):
                 # Early stopping parameters
                 min_loss = inf
                 patience =  args.patience
-                print('Early stopping patience', patience)
+                logger.info('Early stopping patience: %d', patience)
                 trigger_times = 0
                   
                 start = time.time()
@@ -281,7 +298,7 @@ def train_model(embed_dim, epochs):
                     
                     model.train()
 
-                    print ("Before enumerate(train_dataloader): "+time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()))
+                    logger.info("Enumerating Train loader")
                
                     for iter, batch in enumerate(train_dataloader, 1):
                     
@@ -352,7 +369,7 @@ def train_model(embed_dim, epochs):
                     curr_lr = optim.param_groups[0]['lr']
     
                     #print epoch performance
-                    print(f'Fold {fold}, \
+                    logger.info(f'Fold {fold}, \
                             Epoch {epoch}, \
                             LR:{curr_lr}, \
                             Training Loss: {train_loss/len(train_dataloader):.5f}, \
@@ -366,15 +383,15 @@ def train_model(embed_dim, epochs):
                     # Early stopping
     
                     if the_current_loss < min_loss:
-                        print('Loss decreased, trigger times: 0')
+                        logger.info('Loss decreased, trigger times: 0')
                         trigger_times = 0
                         min_loss = the_current_loss
                     else:
                         trigger_times += 1
-                        print('trigger times:', trigger_times)
+                        logger.info('trigger times: %d', trigger_times)
           
                     if trigger_times > patience or epoch==epochs:
-                        print('\nStopping after epoch %d' % (epoch))
+                        logger.info('\nStopping after epoch %d', epoch)
                         
                         temp = time.time()
                         
@@ -389,7 +406,7 @@ def train_model(embed_dim, epochs):
                         #Save trained model
                         torch.save(model, PATH)
                         
-                        print("Trained model saved to {}".format(PATH))
+                        logger.info("Trained model saved to {}".format(PATH))
     
                         # Evaluate model on test set after training
                         #print('Start evaluating model on at', time.time())
@@ -418,12 +435,12 @@ def train_model(embed_dim, epochs):
                         total = all_labels.size(0)
                         correct = (all_predictions == all_labels).sum().item()
                 
-                        print('Accuracy of the network on entire test set: %.2f %% Time: %.5f min' % ( 100 * correct / total, (time.time() - temp)/60 ))
+                        logger.info('Accuracy of the network on entire test set: %.2f %% Time: %.5f min' % ( 100 * correct / total, (time.time() - temp)/60 ))
                         
                         # print accuracy for each class
                         for classname, correct_count in correct_pred.items():
                             accuracy = 100 * float(correct_count) / (total_pred[classname] + 0.0000001)
-                            print("Accuracy for class {:5s} is: {:.2f} %".format(classname,
+                            logger.info("Accuracy for class {:5s} is: {:.2f} %".format(classname,
                                                                           accuracy))
                     
                         break
@@ -448,8 +465,8 @@ def train_model(embed_dim, epochs):
                 '''
     
     
-    print("Training results saved to {}".format(file_name_train))
-    print("Testing results saved to {}".format(file_name_test))
+    logger.info("Training results saved to {}".format(file_name_train))
+    logger.info("Testing results saved to {}".format(file_name_test))
 
 
 def evaluation(model, data_loader):

@@ -1,3 +1,4 @@
+from torch.utils.data import Dataset
 import numpy as np
 import re
 
@@ -34,6 +35,40 @@ class Trajectory:
         min_trajectory_length = input_length + input_gap * (input_length - 1) + pred_length
 
         return len(self) < min_trajectory_length
+
+class TrajectoryDataset(Dataset):
+    """
+    A dataset to store the trajectories. This should be more efficient than using just arrays.
+    Also should be efficient with dataloaders.
+    """
+    def __init__(self, trajectory_ids, trajectory_videos, trajectory_persons, trajectory_frames, trajectory_categories, X):
+        self.ids = [x[0] for x in trajectory_ids]
+        print(type(trajectory_ids[0]))
+        print(self.ids)
+        self.videos = trajectory_videos
+        self.persons = trajectory_persons
+        self.frames = trajectory_frames
+        self.categories = trajectory_categories
+        self.coordinates = X
+
+    def __len__(self):
+        return len(self.ids)
+
+    def __getitem__(self, idx):
+        data = {}
+        data['id'] = self.ids[idx]
+        data['videos'] = self.videos[idx]
+        data['persons'] = self.persons[idx]
+        data['frames'] = self.frames[idx]
+        data['categories'] = self.categories[idx]
+        data['coordinates'] = self.coordinates[idx]
+
+        # return data
+        return self.ids[idx], self.videos[idx], self.persons[idx], self.frames[idx],self.coordinates[idx], self.categories[idx]
+
+    def trajectory_ids(self):
+        return self.ids
+
 
 def remove_short_trajectories(trajectories, input_length, input_gap, pred_length=0):
     filtered_trajectories = {}

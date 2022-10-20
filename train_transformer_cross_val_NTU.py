@@ -10,7 +10,6 @@ from torch.utils.data import DataLoader
 from functools import partial
 from random import shuffle
 from sklearn.model_selection import KFold
-from statistics import mean
 import time
 import pickle
 import sys
@@ -22,7 +21,7 @@ import argparse
 
 from trajectory import Trajectory, TrajectoryDataset, extract_fixed_sized_segments, split_into_train_and_test, remove_short_trajectories, get_categories, get_UTK_categories, get_NTU_categories
 from transformer import TemporalTransformer_4, TemporalTransformer_3, TemporalTransformer_2, BodyPartTransformer, SpatialTemporalTransformer, TemporalTransformer, Block, Attention, Mlp
-from utils import smaller_than_mean
+from utils import print_statistics
 
 def SetupLogger(name):
     logger = logging.getLogger(name)
@@ -56,6 +55,7 @@ parser.add_argument("--lr_patience", help="patience before learning rate is decr
 parser.add_argument("--model_type", help="type of model to train, temporal, temporal_2, temporal_3, temporal_4, spatial-temporal or parts", type=str)
 parser.add_argument("--segment_length", help="length of sliding window", default=12, type=int)
 parser.add_argument("--dataset", help="dataset used HR-Crime or UTK", default="HR-Crime", type=str)
+parser.add_argument("--batch_size", help="batch size for training", default=100, type=int)
 
 args = parser.parse_args()
 
@@ -101,35 +101,8 @@ with open(PIK_test, "rb") as f:
 
 logger.info("Loaded %d train and %d test files", len(train_crime_trajectories), len(test_crime_trajectories))
 
-train_frame_lengths = []
-test_frame_lengths = []
-
-
 # Load the frame lengths to a list so that the min, max and mean no. of frames could be found
-
-for key in train_crime_trajectories:
-    #print(key, ' : ', train_crime_trajectories[key])
-    num_of_frames = len(train_crime_trajectories[key])
-    #print('number of frames:', num_of_frames)
-    
-    train_frame_lengths.append(num_of_frames)
-
-for key in test_crime_trajectories:
-    num_of_frames = len(test_crime_trajectories[key])
-    
-    test_frame_lengths.append(num_of_frames)
-
-logger.info('TRAIN minimum: %d', min(train_frame_lengths))
-logger.info('TRAIN maximum: %d', max(train_frame_lengths))
-logger.info('TRAIN mean: %f', mean(train_frame_lengths))
-
-logger.info('TEST minimum: %d', min(test_frame_lengths))
-logger.info('TEST maximum: %d', max(test_frame_lengths))
-logger.info('TEST mean: %f', mean(test_frame_lengths))
-
-logger.info('TRAIN smaller_than_mean: %d', smaller_than_mean(train_frame_lengths, mean(train_frame_lengths)))
-logger.info('TEST smaller_than_mean: %d', smaller_than_mean(test_frame_lengths, mean(test_frame_lengths)))
-
+print_statistics(train_crime_trajectories, test_crime_trajectories, logger)
 
 
 # Set the segment size
@@ -162,7 +135,7 @@ logger.info("STARTING TRAINING")
 def train_model(embed_dim, epochs):
 
     # Set batch size
-    batch_size = 100
+    batch_size = args.batch_size
     
     # prepare cross validation
 
@@ -240,8 +213,8 @@ def train_model(embed_dim, epochs):
     
                 # train_dataloader = torch.utils.data.DataLoader([ [traj_categories_train[i], traj_videos_train[i], traj_persons_train[i], traj_frames_train[i], X_train[i]] for i in train_ids], shuffle=True, batch_size=100)
                 # val_dataloader = torch.utils.data.DataLoader([ [traj_categories_train[i], traj_videos_train[i], traj_persons_train[i], traj_frames_train[i], X_train[i]] for i in val_ids], shuffle=True, batch_size=100)
-                train_dataloader = torch.utils.data.DataLoader(train, batch_size = 100, shuffle=True)
-                val_dataloader = torch.utils.data.DataLoader(test, batch_size = 100, shuffle=True)
+                train_dataloader = torch.utils.data.DataLoader(train, batch_size = batch_size, shuffle=True)
+                val_dataloader = torch.utils.data.DataLoader(test, batch_size = batch_size, shuffle=True)
 
                 #intialize model
                 if args.model_type == 'temporal':
@@ -302,7 +275,7 @@ def train_model(embed_dim, epochs):
                
                     for iter, batch in enumerate(train_dataloader, 1):
                     
-                        labels, videos, persons, frames, data = batch
+                        ids, videos, persons, frames, data, labels = batch
                         
                         labels = labels.to(device)
                         videos = videos.to(device)

@@ -1,13 +1,13 @@
 #!/bin/bash
 # parameters for slurm
-#SBATCH -J train_transformer_cross_val_NTU                   # job name, don't use spaces, keep it short
-#SBATCH -c 4                          # number of cores, 1
+#SBATCH -J trajectory_dataset_class_test                   # job name, don't use spaces, keep it short
+#SBATCH -c 2                          # number of cores, 1
 #SBATCH --gres=gpu:1                  # number of gpus 1, some clusters don't have GPUs
-#SBATCH --mem=4gb                     # Job memory request
+#SBATCH --mem=2gb                     # Job memory request
 #SBATCH --mail-type=END,FAIL          # email status changes (NONE, BEGIN, END, FAIL, ALL)
 #SBATCH --mail-user=a.m.joseph@student.utwente.nl   # Where to send mail to
-#SBATCH --output=../../out/log/train_transformer_cross_val_NTU_%j.log      # Standard output and error log
-#SBATCH --error=../../out/err/train_transformer_cross_val_NTU_%j.err                # if yoou want the errors logged seperately
+#SBATCH --output=../../out/log/trajectory_dataset_class_test_%j.log      # Standard output and error log
+#SBATCH --error=../../out/err/trajectory_dataset_class_test_%j.err                # if yoou want the errors logged seperately
 #SBATCH --partition=main # Here 50..is the partition name..can be checked via sinfo
  
 # Create a directory for this job on the node
@@ -31,4 +31,5 @@ echo "Gpu devices                 : "$CUDA_VISIBLE_DEVICES
 echo "Starting worker: "
 echo $CONDA_DEFAULT_ENV
 
-python ../train_transformer_cross_val_NTU.py --filename test_128 --embed_dim 128 --dataset NTU_2D --model_type temporal 
+python -u ../train_transformer_cross_val_NTU.py --filename trajectory_dataset_class_test --embed_dim 32 --dataset NTU_2D --model_type temporal --epochs 10
+

@@ -8,8 +8,8 @@ import numpy as np
 import pickle
 from trajectory import Trajectory, get_NTU_categories
 
-# dimension = '2D'
-dimension = '3D'
+dimension = '2D'
+# dimension = '3D'
 
 path = '/home/s2435462/HRC/NTU/skeleton/trajectory_csv_'+dimension
 
@@ -59,9 +59,10 @@ def load_hr_crime_trajectories(trajectories_path, classes):
                   continue
                 trajectory_frames, trajectory_coordinates = trajectory[:, 0].astype(np.int32), trajectory[:, 1:]
                 # person_id = csv_file_name.split('.')[0]
-                person_id = csv_file_name.split('S')[0]
+                # person_id = csv_file_name.split('S')[0]
                 # trajectory_id = folder_name + '_' + person_id
                 trajectory_id = category + '_' + folder_name + '_' + csv_file_name
+                # trajectory_id = csv_file_name.split('.')[0]
                 #if "Normal" in category:
                   #print('this is a Normal category')
                   #category_index = classes.index("Normal")

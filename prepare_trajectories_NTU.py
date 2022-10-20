@@ -4,8 +4,8 @@ import pickle
 from trajectory import Trajectory, remove_short_trajectories, split_into_train_and_test
 
 #load trajectories
-# dimension = '2D'
-dimension = '3D'
+dimension = '2D'
+# dimension = '3D'
 PIK = "/home/s2435462/HRC/data/trajectories_NTU_"+dimension+".dat"
 
 with open(PIK, "rb") as f:

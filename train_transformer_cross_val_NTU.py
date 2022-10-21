@@ -260,41 +260,8 @@ def train_model(embed_dim, epochs):
 
                 output = model(data)
                 #output.to(device)
-                
-                #print(f"output shape: {output.shape}")
-                #print("output", output)
-
-        
-                #print(f"labels shape: {labels.shape}")
-                #print(f"videos shape: {videos.shape}")
-                #print(f"persons shape: {persons.shape}")
-                #print(f"frames shape: {frames.shape}")
-                #print(f"data shape: {data.shape}")
-
-                #print("labels", labels)
-                #print("videos", videos)
-                #print("persons", persons)
-                #print("frames", frames)
-                #print("data", data)
-
-                
-                # The below code was used since labels were duplicated
-                # index = torch.tensor([0]).to(device)
-                # labels = labels.index_select(1, index)
-                # labels = torch.squeeze(labels)
-                
-                #print(f"labels shape: {labels.shape}")
-                #print("labels", labels)
         
                 optim.zero_grad()
-        
-                #if torch.cuda.is_available():
-                #    print('set cross entropy loss to cuda device')
-                #    cross_entropy_loss = nn.CrossEntropyLoss().to(device)     
-                #else:
-                #    cross_entropy_loss = nn.CrossEntropyLoss()
-                    
-                #print('cross_entropy_loss.is_cuda', cross_entropy_loss.is_cuda)
                 
                 cross_entropy_loss = nn.CrossEntropyLoss()
                     
@@ -302,7 +269,6 @@ def train_model(embed_dim, epochs):
                 loss.backward()
                 optim.step()
 
-                #print('labels.size(0)',labels.size(0))
                 train_loss += loss.item() * labels.size(0)
                     
 
@@ -359,8 +325,6 @@ def train_model(embed_dim, epochs):
                 logger.info("Trained model saved to {}".format(PATH))
 
                 # Evaluate model on test set after training
-                #print('Start evaluating model on at', time.time())
-                # test_dataloader = torch.utils.data.DataLoader([ [traj_categories_test[i], traj_videos_test[i], traj_persons_test[i], traj_frames_test[i], X_test[i] ] for i in range(len(traj_ids_test))], shuffle=True, batch_size=100) 
                 test_dataloader = torch.utils.data.DataLoader(test, batch_size=batch_size, shuffle=True)
                 _, all_outputs, all_labels, all_videos, all_persons = evaluation(model, test_dataloader)
                 all_log_likelihoods = F.log_softmax(all_outputs, dim=1) #nn.CrossEntropyLoss also uses the log_softmax
@@ -400,22 +364,8 @@ def train_model(embed_dim, epochs):
 
             scheduler.step(the_current_loss)
             
-
-            #print('param groups:', [group['lr'] for group in optim.param_groups])  
-            
             temp = time.time()
-        
-        '''
-        if dataset == "HR-Crime":   
-            PATH = "/data/s3447707/MasterThesis/trained_models/" + model_name + "_fold_" + str(fold) + ".pt"
-        elif dataset == "UTK":
-            PATH = "/data/s3447707/MasterThesis/UTK_trained_models/" + model_name + "_fold_" + str(fold) + ".pt"
-            
-        #Save trained model
-        torch.save(model, PATH)
-        
-        print("Trained model saved to {}".format(PATH))
-        '''
+    
     
     
     logger.info("Training results saved to {}".format(file_name_train))
@@ -431,46 +381,17 @@ def evaluation(model, data_loader):
     all_labels = torch.LongTensor([]).to(device)
     all_videos = []
     all_persons = []
-    # all_videos = torch.LongTensor([]).to(device)
-    # all_persons = torch.LongTensor([]).to(device)
 
     # Test validation data
     with torch.no_grad():
         for batch in data_loader:
-            # labels, videos, persons, frames, data = batch
             ids, videos, persons, frames, data, labels = batch
             
             labels = labels.to(device)
-            videos = videos#.to(device)
-            persons = persons#.to(device)
             frames = frames.to(device)
             data = data.to(device)
-
-            # index = torch.tensor([0]).to(device)
-            # labels = labels.index_select(1, index)
-            # labels = torch.squeeze(labels)
-
-            #print('videos',videos)
-            # videos = videos.index_select(1, index)
-            # videos = torch.squeeze(videos)
-            # persons = persons.index_select(1, index)
-            # persons = torch.squeeze(persons)
-
-            #print('labels length:', len(labels))
-            #print('videos:', videos)
             
             outputs = model(data)
-            #print('outputs shape:', outputs.shape)
-            #print('outputs sum:', torch.sum(outputs, 0))
-            #print('\n outputs:',outputs)
-            
-            #softmax_output = F.softmax(outputs, 1)
-            #print('softmax_output sum:', torch.max(softmax_output, 1))
-            #print('\nsoftmax_output:',softmax_output)
-
-            #log_softmax_output = F.log_softmax(outputs, 1)
-            #print('log_softmax_output sum:', torch.max(log_softmax_output, 1))
-            #print('\nlog_softmax_output:', log_softmax_output)
 
             cross_entropy_loss = nn.CrossEntropyLoss()
             loss = cross_entropy_loss(outputs, labels)  
@@ -478,13 +399,8 @@ def evaluation(model, data_loader):
             
             all_outputs = torch.cat((all_outputs, outputs), 0)
             all_labels = torch.cat((all_labels, labels), 0)
-            # print(all_labels)
             all_videos.extend(videos)
             all_persons.extend(persons)
-            # all_videos = torch.cat((all_videos, videos), 0)
-            # all_persons = torch.cat((all_persons, persons), 0)
-            
-            #print('all_outputs:', all_outputs)
 
     return loss_total / len(data_loader), all_outputs, all_labels, all_videos, all_persons
     

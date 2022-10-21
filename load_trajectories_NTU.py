@@ -11,26 +11,7 @@ from trajectory import Trajectory, get_NTU_categories
 dimension = '2D'
 # dimension = '3D'
 
-path = '/home/s2435462/HRC/NTU/skeleton/trajectory_csv_'+dimension
-
-# class Trajectory:
-#     def __init__(self, trajectory_id, frames, coordinates, category, dimension):
-#         self.trajectory_id = trajectory_id
-#         self.person_id = trajectory_id.split('_')[2][0] # Saves the person id in each video
-#         self.frames = frames
-#         self.coordinates = coordinates
-#         #self.is_global = False
-#         self.category = category #crime category: Abuse etc. 
-#         self.dimension = 2 if dimension=='2D' else 3
-
-#     def __len__(self):
-#         return len(self.frames)
-
-#     def is_short(self, input_length, input_gap, pred_length=0):
-#         min_trajectory_length = input_length + input_gap * (input_length - 1) + pred_length
-
-#         return len(self) < min_trajectory_length
-        
+path = '/home/s2435462/HRC/NTU/skeleton/trajectory_csv_'+dimension       
 
 def load_hr_crime_trajectories(trajectories_path, classes):
   trajectories = {}
@@ -90,7 +71,7 @@ print('\nLoaded %d trajectories.' % len(trajectories))
 
 
 #save trajectories
-PIK = "trajectories_NTU_"+dimension+".dat"
+PIK = "trajectories_NTU_new_"+dimension+".dat"
 
 with open(PIK, "wb") as f:
   pickle.dump(trajectories, f)

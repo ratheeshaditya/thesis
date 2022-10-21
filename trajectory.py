@@ -166,13 +166,6 @@ def _extract_fixed_sized_segments(dataset, trajectory, input_length):
         traj_frames.append(frames[start_index:stop_index])
     
     traj_frames, traj_X = np.stack(traj_frames, axis=0), np.stack(traj_X, axis=0)
-
-    
-    # traj_ids = np.full(traj_frames.shape, fill_value=trajectory_id)
-    # traj_categories = np.full(traj_frames.shape, fill_value=category)
-    
-    #print('traj_ids:', traj_ids)
-    #print('traj_categories:',traj_categories)
     
     if dataset == "HR-Crime":
         numbers_found = re.search(r"(\d+)_(\d+)", trajectory_id)
@@ -182,15 +175,9 @@ def _extract_fixed_sized_segments(dataset, trajectory, input_length):
         numbers_found = re.search(r"_(\w+)_(\w+)", trajectory_id)
         video_id = numbers_found.group(1)[1:]
         person_id = numbers_found.group(2)[1:]
-    # elif dataset == "NTU":
-    #     numbers_found = re.search(r"(\d+)_(\d+)", trajectory_id)
-    #     video_id = numbers_found.group(1)
-    #     person_id = numbers_found.group(2)
     elif "NTU" in dataset:
-        # video_id = trajectory_id.split('_')[0]+trajectory_id.split('_')[1]+trajectory_id.split('_')[2][1:]
-        video_id = trajectory_id.split('_')[0] # trajectory_id.split('_')[2][1:9]+trajectory_id.split('_')[1]+trajectory_id.split('_')[2][9:13]#trajectory_id.split('_')
-        # [0]trajectory_id.split('_')[2][0]
-        person_id = trajectory.person_id  # trajectory_id.split('_')[1] + '_' + trajectory_id.split('_')[2][0]
+        video_id = trajectory_id.split('_')[0] 
+        person_id = trajectory.person_id
     
     return trajectory_id, video_id, person_id, traj_frames, category, traj_X
 

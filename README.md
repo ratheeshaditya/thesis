@@ -35,25 +35,27 @@ The folder structure looks like this:
 trajectory_csv_2D/
     A057/
         P029/
-            0S008C003R002.csv
-            1S008C003R002.csv
-            0S008C002R002.csv
-            1S008C002R002.csv
+            S008C003P029R002A057_0.csv
+            S008C003P029R002A057_1.csv
+            S008C002P029R002A057_0.csv
+            S008C002P029R002A057_1.csv
             .
             .
             .
         P007/
-            0S013C001R001.csv
-            1S013C001R001.csv
-            0S015C001R002.csv
+            S013C001P007R001A057_0.csv
+            S013C001P007R001A057_1.csv
+            S015C001P007R002A057_0.csv
+            S015C001P007R002A057_1.csv
             .
             .
             .
     A100/
-            0S008C003R002.csv
-            1S008C003R002.csv
-            0S008C002R002.csv
-            1S008C002R002.csv
+        P007/
+            S013C001P007R001A100_0.csv
+            S013C001P007R001A100_1.csv
+            S015C001P007R002A100_0.csv
+            S015C001P007R002A100_1.csv
             .
             .
             .
@@ -95,18 +97,57 @@ The dictionary looks like this:
 
 ### `prepare_trajectories_NTU.py`
 
-This script is to prepare the trajectories into train and test datasets. It loads the pickled .dat files and splits them into 80% and 20%.
+This script is to remove short trajectories and prepare them into train and test datasets. It loads the pickled .dat files and splits them into 80% and 20%.
 
 These are them saved as `trajectories_train_NTU_2D.dat` and `trajectories_test_NTU_2D.dat` in `/home/s2435462/HRC/data/`
 
 
 We now have the test and train datasets saved!!
 
-trajectory_id = category + '_' + folder_name + '_' + csv_file_name
+### `utils.py`
 
-A001_P001_0S006C002R002.csv
+This file stores some utility functions like SetupLogger, printstatistics, etc..
 
-S018C001P042R002A120
+### `train_transformer_cross_val_NTU.py`
 
-0S006C002R002.csv
+This is the main training file.
 
+It starts by setting up a logger and reading all arguments.
+
+The train and test trajectories are then loaded from the output of `prepare_trajectories.py`.
+
+Some short trajectories are then removed.
+
+It uses K-fold cross validation for training.
+
+The training results are stored in the format: 'fold', 'epoch', 'LR', 'Training Loss', 'Validation Loss', 'Validation Accuracy', 'Time'
+
+The testing results are stored in the format : 'fold', 'label', 'video', 'person', 'prediction', 'log_likelihoods', 'logits'
+
+The Trajectory datasets are then created using the TrajectoryDataset classes. It is initialized using the output of `extract_fixed_sized_segments()` which returns the segmented coordinates.
+
+Then for each fold, a train and validation dataloader is defined. The model is also initialized. 
+
+For all the epochs, the data from the train dataloader is passed to the model. The validation dataset is used for validation results. The training results are saved to a file.
+
+If the patience is exceeded or the final epoch is done, the training is stopped. The test dataset is then used for test results.
+
+### `trajectory.py`
+
+### `transformer.py`
+
+## TODO
+
+NTU120 on the existing models
+
+HR-Crime on the existing models (done by Kayleigh)
+
+ViTPose on NTU120
+
+ViTPose on HR-Crime
+
+Tubelet
+
+Global, local
+
+ResNet

@@ -11,8 +11,8 @@ from utils import SetupLogger
 
 logger = SetupLogger('logger')
 
-dimension = '2D'
-# dimension = '3D'
+# dimension = '2D'
+dimension = '3D'
 
 path = '/home/s2435462/HRC/NTU/skeleton/trajectory_csv_'+dimension       
 
@@ -60,7 +60,7 @@ trajectories = load_trajectories(path, all_categories)
 logger.info('Loaded %d trajectories.', len(trajectories))
 
 #save trajectories
-PIK = "trajectories_NTU_new_"+dimension+".dat"
+PIK = "/home/s2435462/HRC/data/trajectories_NTU_new_"+dimension+".dat"
 
 with open(PIK, "wb") as f:
   pickle.dump(trajectories, f)

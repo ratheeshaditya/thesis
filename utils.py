@@ -1,4 +1,19 @@
 from statistics import mean
+import logging
+import sys
+
+def SetupLogger(name):
+    logger = logging.getLogger(name)
+    logger.setLevel(logging.INFO)
+
+    ch = logging.StreamHandler(stream=sys.stdout)
+    ch.setLevel(logging.INFO)
+
+    formatter = logging.Formatter('%(asctime)s %(message)s')
+    ch.setFormatter(formatter)
+    logger.addHandler(ch)
+
+    return logger
 
 def smaller_than_mean(lengths, mean):
     return len([x for x in lengths if x <= mean])

@@ -21,20 +21,7 @@ import argparse
 
 from trajectory import Trajectory, TrajectoryDataset, extract_fixed_sized_segments, split_into_train_and_test, remove_short_trajectories, get_categories, get_UTK_categories, get_NTU_categories
 from transformer import TemporalTransformer_4, TemporalTransformer_3, TemporalTransformer_2, BodyPartTransformer, SpatialTemporalTransformer, TemporalTransformer, Block, Attention, Mlp
-from utils import print_statistics
-
-def SetupLogger(name):
-    logger = logging.getLogger(name)
-    logger.setLevel(logging.INFO)
-
-    ch = logging.StreamHandler(stream=sys.stdout)
-    ch.setLevel(logging.INFO)
-
-    formatter = logging.Formatter('%(asctime)s %(message)s')
-    ch.setFormatter(formatter)
-    logger.addHandler(ch)
-
-    return logger
+from utils import print_statistics, SetupLogger
 
 logger = SetupLogger('logger')
 
@@ -210,11 +197,14 @@ def train_model(embed_dim, epochs):
             # K-fold Cross Validation model evaluation
             for fold, (train_ids, val_ids) in enumerate(kf.split(train.trajectory_ids()), 1):
                 logger.info('\nfold: %d, train: %d, test: %d', fold, len(train_ids), len(val_ids))
+
+                train_subset = torch.utils.data.Subset(train, train_ids)
+                val_subset = torch.utils.data.Subset(train, val_ids)
     
                 # train_dataloader = torch.utils.data.DataLoader([ [traj_categories_train[i], traj_videos_train[i], traj_persons_train[i], traj_frames_train[i], X_train[i]] for i in train_ids], shuffle=True, batch_size=100)
                 # val_dataloader = torch.utils.data.DataLoader([ [traj_categories_train[i], traj_videos_train[i], traj_persons_train[i], traj_frames_train[i], X_train[i]] for i in val_ids], shuffle=True, batch_size=100)
-                train_dataloader = torch.utils.data.DataLoader(train, batch_size = batch_size, shuffle=True)
-                val_dataloader = torch.utils.data.DataLoader(test, batch_size = batch_size, shuffle=True)
+                train_dataloader = torch.utils.data.DataLoader(train_subset, batch_size = batch_size, shuffle=True)
+                val_dataloader = torch.utils.data.DataLoader(val_subset, batch_size = batch_size, shuffle=True)
 
                 #intialize model
                 if args.model_type == 'temporal':
@@ -278,8 +268,8 @@ def train_model(embed_dim, epochs):
                         ids, videos, persons, frames, data, labels = batch
                         
                         labels = labels.to(device)
-                        videos = videos.to(device)
-                        persons = persons.to(device)
+                        videos = videos#.to(device)
+                        persons = persons#.to(device)
                         frames = frames.to(device)
                         data = data.to(device)
     
@@ -303,10 +293,10 @@ def train_model(embed_dim, epochs):
                         #print("data", data)
     
                         
-                        
-                        index = torch.tensor([0]).to(device)
-                        labels = labels.index_select(1, index)
-                        labels = torch.squeeze(labels)
+                        # The below code was used since labels were duplicated
+                        # index = torch.tensor([0]).to(device)
+                        # labels = labels.index_select(1, index)
+                        # labels = torch.squeeze(labels)
                         
                         #print(f"labels shape: {labels.shape}")
                         #print("labels", labels)
@@ -383,7 +373,8 @@ def train_model(embed_dim, epochs):
     
                         # Evaluate model on test set after training
                         #print('Start evaluating model on at', time.time())
-                        test_dataloader = torch.utils.data.DataLoader([ [traj_categories_test[i], traj_videos_test[i], traj_persons_test[i], traj_frames_test[i], X_test[i] ] for i in range(len(traj_ids_test))], shuffle=True, batch_size=100) 
+                        # test_dataloader = torch.utils.data.DataLoader([ [traj_categories_test[i], traj_videos_test[i], traj_persons_test[i], traj_frames_test[i], X_test[i] ] for i in range(len(traj_ids_test))], shuffle=True, batch_size=100) 
+                        test_dataloader = torch.utils.data.DataLoader(test, batch_size=batch_size, shuffle=True)
                         _, all_outputs, all_labels, all_videos, all_persons = evaluation(model, test_dataloader)
                         all_log_likelihoods = F.log_softmax(all_outputs, dim=1) #nn.CrossEntropyLoss also uses the log_softmax
                         # the class with the highest log-likelihood is what we choose as prediction
@@ -398,7 +389,7 @@ def train_model(embed_dim, epochs):
                         # collect the correct predictions for each class
                         for label, video, person, prediction, log_likelihoods, logits in zip(all_labels, all_videos, all_persons, all_predictions, all_log_likelihoods, all_outputs):
                             
-                            csv_writer_test.writerow([fold, label.item(),  video.item(), person.item(), prediction.item(), log_likelihoods.tolist(), logits.tolist()])
+                            csv_writer_test.writerow([fold, label.item(),  video, person, prediction.item(), log_likelihoods.tolist(), logits.tolist()])
                                 
                             if label == prediction:
                                 correct_pred[all_categories[label]] += 1
@@ -449,29 +440,32 @@ def evaluation(model, data_loader):
     
     all_outputs = torch.tensor([]).to(device)
     all_labels = torch.LongTensor([]).to(device)
-    all_videos = torch.LongTensor([]).to(device)
-    all_persons = torch.LongTensor([]).to(device)
+    all_videos = []
+    all_persons = []
+    # all_videos = torch.LongTensor([]).to(device)
+    # all_persons = torch.LongTensor([]).to(device)
 
     # Test validation data
     with torch.no_grad():
         for batch in data_loader:
-            labels, videos, persons, frames, data = batch
+            # labels, videos, persons, frames, data = batch
+            ids, videos, persons, frames, data, labels = batch
             
             labels = labels.to(device)
-            videos = videos.to(device)
-            persons = persons.to(device)
+            videos = videos#.to(device)
+            persons = persons#.to(device)
             frames = frames.to(device)
             data = data.to(device)
 
-            index = torch.tensor([0]).to(device)
-            labels = labels.index_select(1, index)
-            labels = torch.squeeze(labels)
+            # index = torch.tensor([0]).to(device)
+            # labels = labels.index_select(1, index)
+            # labels = torch.squeeze(labels)
 
             #print('videos',videos)
-            videos = videos.index_select(1, index)
-            videos = torch.squeeze(videos)
-            persons = persons.index_select(1, index)
-            persons = torch.squeeze(persons)
+            # videos = videos.index_select(1, index)
+            # videos = torch.squeeze(videos)
+            # persons = persons.index_select(1, index)
+            # persons = torch.squeeze(persons)
 
             #print('labels length:', len(labels))
             #print('videos:', videos)
@@ -495,8 +489,11 @@ def evaluation(model, data_loader):
             
             all_outputs = torch.cat((all_outputs, outputs), 0)
             all_labels = torch.cat((all_labels, labels), 0)
-            all_videos = torch.cat((all_videos, videos), 0)
-            all_persons = torch.cat((all_persons, persons), 0)
+            # print(all_labels)
+            all_videos.extend(videos)
+            all_persons.extend(persons)
+            # all_videos = torch.cat((all_videos, videos), 0)
+            # all_persons = torch.cat((all_persons, persons), 0)
             
             #print('all_outputs:', all_outputs)
 

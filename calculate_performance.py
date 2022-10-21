@@ -1,5 +1,6 @@
  #!/bin/env python
  
+from asyncio.log import logger
 import pandas as pd
 import numpy as np
 from sklearn.metrics import balanced_accuracy_score, accuracy_score, precision_score, recall_score, f1_score, top_k_accuracy_score
@@ -7,13 +8,17 @@ from prettytable import PrettyTable
 import argparse
 import sys
 
+from utils import SetupLogger
+
+logger = SetupLogger('logger')
+
 parser = argparse.ArgumentParser()
 parser.add_argument("--filename", help="filename of resulst used to calculate model performance")
 
 args = parser.parse_args()
 
-print('Number of arguments:', len(sys.argv), 'arguments.')
-print('Argument List:', str(sys.argv))
+logger.info('Number of arguments: %d', len(sys.argv))
+logger.info('Argument List:', str(sys.argv))
 
 def conv_to_float(x):
   return [float(y) for y in x[1:-1].split(',')]
@@ -59,10 +64,10 @@ def evaluate_category(df, category, t):
 #load training results
 #file to save results
 # file_name = '/home/s2435462/HRC/results/' + args.filename + '.csv'
-file_name = '/home/s2435462/HRC/' + args.filename + '.csv'
-print('before read_csv')
+file_name = '/home/s2435462/HRC/results/NTU_2D/testing/' + args.filename + '.csv'
+logger.info('before read_csv')
 df_results = pd.read_csv(file_name, delimiter=';')
-print('after read_csv')
+logger.info('after read_csv')
 
 
 headers = ['CATEGORY','ACCURACY(M)','ACCURACY(W)','PRECISION(W)','RECALL(W)','F1-SCORE(W)', 'TOP_3_ACC', 'TOP_5_ACC']
@@ -70,7 +75,7 @@ headers = ['CATEGORY','ACCURACY(M)','ACCURACY(W)','PRECISION(W)','RECALL(W)','F1
 # Evaluate model performance on all crime categories
 t_all = PrettyTable(headers)
 t_all = evaluate_all(df_results, 'ALL', t_all)
-print(t_all)
+logger.info('\n' + str(t_all))
 
 
 #Evalutate performace per class

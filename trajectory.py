@@ -21,7 +21,7 @@ def get_NTU_categories():
 class Trajectory:
     def __init__(self, trajectory_id, frames, coordinates, category, dimension):
         self.trajectory_id = trajectory_id
-        self.person_id = trajectory_id.split('_')[2][0] # Saves the person id in each video
+        self.person_id = trajectory_id[9:13] + '_' + trajectory_id.split('_')[1] # Saves the person id in each video
         self.frames = frames
         self.coordinates = coordinates
         #self.is_global = False
@@ -188,23 +188,10 @@ def _extract_fixed_sized_segments(dataset, trajectory, input_length):
     #     person_id = numbers_found.group(2)
     elif "NTU" in dataset:
         # video_id = trajectory_id.split('_')[0]+trajectory_id.split('_')[1]+trajectory_id.split('_')[2][1:]
-        video_id = trajectory_id.split('_')[2][1:9]+trajectory_id.split('_')[1]+trajectory_id.split('_')[2][9:13]#trajectory_id.split('_')
+        video_id = trajectory_id.split('_')[0] # trajectory_id.split('_')[2][1:9]+trajectory_id.split('_')[1]+trajectory_id.split('_')[2][9:13]#trajectory_id.split('_')
         # [0]trajectory_id.split('_')[2][0]
-        person_id = trajectory_id.split('_')[1] + '_' + trajectory_id.split('_')[2][0]
+        person_id = trajectory.person_id  # trajectory_id.split('_')[1] + '_' + trajectory_id.split('_')[2][0]
     
-    #print('trajectory_id',trajectory_id)
-    #print('numbers_found', numbers_found)
-    
-    #print('video_id', int(video_id))
-    #print('person_id', int(person_id))
-    
-    # traj_videos = np.full(traj_frames.shape, fill_value=video_id)
-    # traj_persons = np.full(traj_frames.shape, fill_value=int(person_id))
-    
-    #print('traj_videos', traj_videos)
-    #print('traj_persons', traj_persons)
-
-    # return traj_ids, traj_videos, traj_persons, traj_frames, traj_categories, traj_X
     return trajectory_id, video_id, person_id, traj_frames, category, traj_X
 
 #extract fixed sized segments using sliding window to create equal length input

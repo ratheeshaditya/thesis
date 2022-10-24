@@ -108,6 +108,11 @@ test_crime_trajectories = remove_short_trajectories(test_crime_trajectories, inp
 # else:
 #     print('\nRemoved short trajectories: %d train trajectories and %d test trajectories left' % (len(train_crime_trajectories), len(test_crime_trajectories)))
 
+if args.debug:
+    train_crime_trajectories = {key: value for key, value in train_crime_trajectories.items() if 'S001' in key or 'S002' in key}
+    test_crime_trajectories = {key: value for key, value in test_crime_trajectories.items() if 'S003' in key or 'S004' in key}  
+    logger.info('IN DEBUG MODE!!!\n')  
+
 logger.info("Categories: %s", ','.join(all_categories))
 
 model_name = args.filename #e.g. "transformer_model_embed_dim_32"
@@ -155,11 +160,11 @@ def train_model(embed_dim, epochs):
             num_joints = 25
             in_chans = 3
     
-    with open(file_name_train, 'w') as csv_file_train:
+    with open(file_name_train, 'a') as csv_file_train:
         csv_writer_train = csv.writer(csv_file_train, delimiter=';')
         csv_writer_train.writerow(['fold', 'epoch', 'LR', 'Training Loss', 'Validation Loss', 'Validation Accuracy', 'Time'])
     
-    with open(file_name_test, 'w') as csv_file_test:
+    with open(file_name_test, 'a') as csv_file_test:
         csv_writer_test = csv.writer(csv_file_test, delimiter=';')
         csv_writer_test.writerow(['fold', 'label', 'video', 'person', 'prediction', 'log_likelihoods', 'logits'])
     
@@ -255,16 +260,22 @@ def train_model(embed_dim, epochs):
             logger.info("Enumerating Train loader")
         
             for iter, batch in enumerate(train_dataloader, 1):
-            
-                ids, videos, persons, frames, data, labels = batch
+                # print(batch)
+                # print(type(batch))
+                ids, videos, persons, frames, data, categories = batch
                 
-                labels = labels.to(device)
+                # labels = labels.to(device)
+                labels = torch.tensor([y[0] for y in categories]).to(device)
                 videos = videos#.to(device)
                 persons = persons#.to(device)
                 frames = frames.to(device)
                 data = data.to(device)
 
                 output = model(data)
+                # print(data.shape)
+                # print(output.shape)
+                # print(labels.shape)
+                # print(labels)
                 #output.to(device)
         
                 optim.zero_grad()
@@ -298,7 +309,7 @@ def train_model(embed_dim, epochs):
                     Time: {((time.time() - temp)/60):.5f} min')
             
             #Write epoch performance to file
-            with open(file_name_train, 'w') as csv_file_train:
+            with open(file_name_train, 'a') as csv_file_train:
                 csv_writer_train = csv.writer(csv_file_train, delimiter=';')
                 csv_writer_train.writerow([fold, epoch, curr_lr, train_loss/len(train_dataloader), the_current_loss, (correct / total), (time.time() - temp)/60])
             
@@ -346,7 +357,7 @@ def train_model(embed_dim, epochs):
                 # collect the correct predictions for each class
                 for label, video, person, prediction, log_likelihoods, logits in zip(all_labels, all_videos, all_persons, all_predictions, all_log_likelihoods, all_outputs):
                     
-                    with open(file_name_test, 'w') as csv_file_test:
+                    with open(file_name_test, 'a') as csv_file_test:
                         csv_writer_test = csv.writer(csv_file_test, delimiter=';')
                         csv_writer_test.writerow([fold, label.item(),  video, person, prediction.item(), log_likelihoods.tolist(), logits.tolist()])
                         
@@ -391,9 +402,11 @@ def evaluation(model, data_loader):
     # Test validation data
     with torch.no_grad():
         for batch in data_loader:
-            ids, videos, persons, frames, data, labels = batch
+            ids, videos, persons, frames, data, categories = batch
             
-            labels = labels.to(device)
+            labels = torch.tensor([y[0] for y in categories]).to(device)
+            # labels = torch.tensor([y[0] for y in videos]).to(device)
+            # labels = torch.tensor([y[0] for y in categories]).to(device)
             frames = frames.to(device)
             data = data.to(device)
             
@@ -413,3 +426,5 @@ def evaluation(model, data_loader):
 
 #train model
 train_model(embed_dim=args.embed_dim, epochs=args.epochs)
+
+logger.info("TRAINING COMPLETED!!!")

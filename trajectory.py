@@ -21,7 +21,7 @@ def get_NTU_categories():
 class Trajectory:
     def __init__(self, trajectory_id, frames, coordinates, category, dimension):
         self.trajectory_id = trajectory_id
-        self.person_id = trajectory_id[9:13] + '_' + trajectory_id.split('_')[1] # Saves the person id in each video
+        self.person_id = trajectory_id[8:12] + '_' + trajectory_id.split('_')[1] # Saves the person id in each video
         self.frames = frames
         self.coordinates = coordinates
         #self.is_global = False
@@ -42,9 +42,9 @@ class TrajectoryDataset(Dataset):
     Also should be efficient with dataloaders.
     """
     def __init__(self, trajectory_ids, trajectory_videos, trajectory_persons, trajectory_frames, trajectory_categories, X):
-        self.ids = trajectory_ids
-        self.videos = trajectory_videos
-        self.persons = trajectory_persons
+        self.ids = trajectory_ids.tolist()
+        self.videos = trajectory_videos.tolist()
+        self.persons = trajectory_persons.tolist()
         self.frames = trajectory_frames
         self.categories = trajectory_categories
         self.coordinates = X
@@ -114,6 +114,9 @@ def split_into_train_and_test(trajectories, train_ratio=0.8, seed=42):
 
 #extract fixed sized segments using sliding window to create equal length input
 def extract_fixed_sized_segments(dataset, trajectories, input_length):
+    '''
+    Given a dataset of trajectories, divide each of them into segments and return a whole bunch of segments.
+    '''
     trajectories_ids, videos, persons, frames, categories, X = [], [], [], [], [], []
     
         
@@ -127,12 +130,15 @@ def extract_fixed_sized_segments(dataset, trajectories, input_length):
         videos.append(video_id)
         persons.append(person_id)
         
-    trajectories_ids, videos, persons, frames, categories, X = trajectories_ids, videos, persons, np.vstack(frames), categories, np.vstack(X)
+    trajectories_ids, videos, persons, frames, categories, X = np.vstack(trajectories_ids), np.vstack(videos), np.vstack(persons), np.vstack(frames), np.vstack(categories), np.vstack(X)
 
     return trajectories_ids, videos, persons, frames, categories, X
 
 
 def _extract_fixed_sized_segments(dataset, trajectory, input_length):
+    '''
+    Given a trajectory, divide it into segments and return it
+    '''
     traj_frames, traj_X = [], []
 
     trajectory_id = trajectory.trajectory_id
@@ -147,6 +153,17 @@ def _extract_fixed_sized_segments(dataset, trajectory, input_length):
         traj_X.append(coordinates[start_index:stop_index, :])
         traj_frames.append(frames[start_index:stop_index])
     
+    '''
+    a = np.array([1, 2, 3])
+
+    b = np.array([4, 5, 6])
+
+    np.stack((a, b))
+    array([[1, 2, 3],
+           [4, 5, 6]])
+
+    np.stack() will arrange lists like this.
+    '''
     traj_frames, traj_X = np.stack(traj_frames, axis=0), np.stack(traj_X, axis=0)
     
     if dataset == "HR-Crime":
@@ -160,8 +177,15 @@ def _extract_fixed_sized_segments(dataset, trajectory, input_length):
     elif "NTU" in dataset:
         video_id = trajectory_id.split('_')[0] 
         person_id = trajectory.person_id
+
+    # Create the following np arrays in the shape of traj_frames
+    traj_ids = np.full(traj_frames.shape, fill_value=trajectory_id)
+    traj_categories = np.full(traj_frames.shape, fill_value=category)
+    traj_videos = np.full(traj_frames.shape, fill_value=video_id)
+    traj_persons = np.full(traj_frames.shape, fill_value=person_id)    
     
-    return trajectory_id, video_id, person_id, traj_frames, category, traj_X
+    # return trajectory_id, video_id, person_id, traj_frames, category, traj_X
+    return traj_ids, traj_videos, traj_persons, traj_frames, traj_categories, traj_X
 
 #extract fixed sized segments using sliding window to create equal length input
 def extract_fixed_sized_segments_UTK(dataset, trajectories, input_length):

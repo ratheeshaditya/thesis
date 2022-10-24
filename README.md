@@ -138,7 +138,14 @@ If the patience is exceeded or the final epoch is done, the training is stopped.
 
 ## TODO
 
+TensorBoard
+MLflow
+
+check batch input shape? Together or one by one?
+
 NTU120 on the existing models
+
+Move saved data to dataset storage
 
 HR-Crime on the existing models (done by Kayleigh)
 

@@ -7,6 +7,7 @@ import torch.nn.functional as F
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch._six import inf
 from torch.utils.data import DataLoader
+from torch.utils.tensorboard import SummaryWriter
 from functools import partial
 from random import shuffle
 from sklearn.model_selection import KFold
@@ -24,6 +25,9 @@ from transformer import TemporalTransformer_4, TemporalTransformer_3, TemporalTr
 from utils import print_statistics, SetupLogger
 
 logger = SetupLogger('logger')
+logger.info("Logger set up!")
+logger.info("Tensorboard set up!")
+
 
 # logging.basicConfig(format='%(asctime)s %(message)s', level=logging.INFO)
 
@@ -55,6 +59,8 @@ logger.info('CUDA available: %s', str(torch.cuda.is_available()))
 device = "cuda:0" if torch.cuda.is_available() else "cpu"
 logger.info('Available devices: %s', torch.cuda.device_count())
 logger.info('Current cuda device: %s ', str(torch.cuda.current_device()))
+
+writer = SummaryWriter(log_dir="/home/s2435462/HRC/results/tensorboard_logs/"+args.filename)
 
 
 # Set dataset
@@ -287,6 +293,7 @@ def train_model(embed_dim, epochs):
                 optim.step()
 
                 train_loss += loss.item() * labels.size(0)
+                writer.add_scalar("Fold_"+str(fold)+'_Batch_loss', loss, iter)
                     
 
 
@@ -298,6 +305,10 @@ def train_model(embed_dim, epochs):
             total = all_labels.size(0)
             correct = (all_predictions == all_labels).sum().item()
             curr_lr = optim.param_groups[0]['lr']
+
+            writer.add_scalar("Fold_"+str(fold)+"Training loss", train_loss/len(train_dataloader), epoch)
+            writer.add_scalar("Fold_"+str(fold)+"Validation loss", the_current_loss, epoch)
+            writer.add_scalar("Fold_"+str(fold)+"Validation Accuracy", correct / total, epoch)
 
             #print epoch performance
             logger.info(f'Fold {fold}, \
@@ -426,5 +437,5 @@ def evaluation(model, data_loader):
 
 #train model
 train_model(embed_dim=args.embed_dim, epochs=args.epochs)
-
+writer.close()
 logger.info("TRAINING COMPLETED!!!")

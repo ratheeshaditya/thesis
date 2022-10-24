@@ -182,7 +182,7 @@ class TemporalTransformer(nn.Module):
             #print(f"blocks(x) shape: {x.shape}")
 
         x = self.norm(x)
-
+        # print("x shape:", x.shape)
         cls_token_final = x[:, 0]
         #return self.pre_logits(x[:, 0])
         return cls_token_final

@@ -42,16 +42,7 @@ class TrajectoryDataset(Dataset):
     Also should be efficient with dataloaders.
     """
     def __init__(self, trajectory_ids, trajectory_videos, trajectory_persons, trajectory_frames, trajectory_categories, X):
-        # self.ids = [x[0] for x in trajectory_ids]
-        # print(trajectory_ids.shape)
-        # print(type(trajectory_ids[0]))
-        # print(trajectory_ids)
-        # print(self.ids)
         self.ids = trajectory_ids
-        # print("self.ids: ", len(self.ids))
-        # print(len(trajectory_ids))
-        # print(len(trajectory_videos))
-        # print(len(trajectory_persons))
         self.videos = trajectory_videos
         self.persons = trajectory_persons
         self.frames = trajectory_frames
@@ -125,12 +116,10 @@ def split_into_train_and_test(trajectories, train_ratio=0.8, seed=42):
 def extract_fixed_sized_segments(dataset, trajectories, input_length):
     trajectories_ids, videos, persons, frames, categories, X = [], [], [], [], [], []
     
-    #print('FORMAT trajectories_ids {}'.format(type(trajectories_ids)))
         
     for trajectory in trajectories.values():
         traj_id, video_id, person_id, traj_frames, traj_category, traj_X = _extract_fixed_sized_segments(dataset, trajectory, input_length)
         
-        #print('traj_ids type', type(traj_ids))
         trajectories_ids.append(traj_id)
         frames.append(traj_frames)
         categories.append(traj_category)
@@ -138,7 +127,6 @@ def extract_fixed_sized_segments(dataset, trajectories, input_length):
         videos.append(video_id)
         persons.append(person_id)
         
-    # trajectories_ids, videos, persons, frames, categories, X = np.vstack(trajectories_ids), np.vstack(videos), np.vstack(persons), np.vstack(frames), np.vstack(categories), np.vstack(X)
     trajectories_ids, videos, persons, frames, categories, X = trajectories_ids, videos, persons, np.vstack(frames), categories, np.vstack(X)
 
     return trajectories_ids, videos, persons, frames, categories, X
@@ -152,14 +140,8 @@ def _extract_fixed_sized_segments(dataset, trajectory, input_length):
     frames = trajectory.frames
     category = trajectory.category
 
-    #print('frames',frames)
-
     total_input_seq_len = input_length
     stop = len(coordinates) - total_input_seq_len + 1
-    #print('total_input_seq_len', total_input_seq_len)
-    #print('len(coordinates)',len(coordinates))
-    #print('stop',stop)
-    
     for start_index in range(stop):
         stop_index = start_index + total_input_seq_len
         traj_X.append(coordinates[start_index:stop_index, :])

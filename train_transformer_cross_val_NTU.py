@@ -180,17 +180,23 @@ def train_model(embed_dim, epochs):
     logger.info("Starting K-Fold")
 
     # K-fold Cross Validation model evaluation
+    #### CHECK THIS TRAIN.TRAJECTORY_IDS !!!!!
     for fold, (train_ids, val_ids) in enumerate(kf.split(train.trajectory_ids()), 1):
         logger.info('\nfold: %d, train: %d, test: %d', fold, len(train_ids), len(val_ids))
 
+        logger.info("Creating Train and Validation subsets.")
+
         train_subset = torch.utils.data.Subset(train, train_ids)
         val_subset = torch.utils.data.Subset(train, val_ids)
+
+        logger.info("Creating Train and Validation dataloaders.")
 
         # train_dataloader = torch.utils.data.DataLoader([ [traj_categories_train[i], traj_videos_train[i], traj_persons_train[i], traj_frames_train[i], X_train[i]] for i in train_ids], shuffle=True, batch_size=100)
         # val_dataloader = torch.utils.data.DataLoader([ [traj_categories_train[i], traj_videos_train[i], traj_persons_train[i], traj_frames_train[i], X_train[i]] for i in val_ids], shuffle=True, batch_size=100)
         train_dataloader = torch.utils.data.DataLoader(train_subset, batch_size = batch_size, shuffle=True)
         val_dataloader = torch.utils.data.DataLoader(val_subset, batch_size = batch_size, shuffle=True)
 
+        logger.info("Creating the model.")
         #intialize model
         if args.model_type == 'temporal':
                 model = TemporalTransformer(embed_dim=embed_dim, num_frames=segment_length, num_classes=num_classes, num_joints=num_joints, in_chans=in_chans, mlp_ratio=2., qkv_bias=True, qk_scale=None, dropout=0.1)

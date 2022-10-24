@@ -1,4 +1,9 @@
  #!/bin/env python
+
+'''
+This files function has been added to load_trajectories_NTU.py
+You can use the same file for the combined function
+'''
  
 import pickle
 from trajectory import Trajectory, remove_short_trajectories, split_into_train_and_test

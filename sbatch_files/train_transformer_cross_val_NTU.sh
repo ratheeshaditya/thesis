@@ -34,4 +34,4 @@ echo $CONDA_DEFAULT_ENV
 
 # python -u ../train_transformer_cross_val_NTU.py --filename training_NTU_2D_128d_100e_10p_001 --lr 0.001 --embed_dim 128 --dataset NTU_2D --model_type temporal --epochs 100 --patience 10
 # python -u ../train_transformer_cross_val_NTU.py --filename x_shape_test --embed_dim 128 --dataset NTU_2D --model_type temporal --epochs 5
-python -u ../train_transformer_cross_val_NTU.py --filename traj_ids_test --lr 0.001 --embed_dim 32 --dataset NTU_2D --model_type temporal --epochs 3 --patience 10 --batch_size 3000 --debug
+python -u ../train_transformer_cross_val_NTU.py --filename tensorboard_test_9 --lr 0.001 --embed_dim 32 --dataset NTU_2D --model_type temporal --epochs 2 --patience 10 --batch_size 3000 --debug

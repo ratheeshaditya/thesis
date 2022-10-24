@@ -11,18 +11,21 @@ from torch.utils.tensorboard import SummaryWriter
 from functools import partial
 from random import shuffle
 from sklearn.model_selection import KFold
+from prettytable import PrettyTable
+from mlflow import log_metric, log_param, start_run
 import time
 import pickle
 import sys
 import csv
 import numpy as np
+import pandas as pd
 import os
 import logging
 import argparse
 
 from trajectory import Trajectory, TrajectoryDataset, extract_fixed_sized_segments, split_into_train_and_test, remove_short_trajectories, get_categories, get_UTK_categories, get_NTU_categories
 from transformer import TemporalTransformer_4, TemporalTransformer_3, TemporalTransformer_2, BodyPartTransformer, SpatialTemporalTransformer, TemporalTransformer, Block, Attention, Mlp
-from utils import print_statistics, SetupLogger
+from utils import print_statistics, SetupLogger, evaluate_all, evaluate_category, conv_to_float
 
 logger = SetupLogger('logger')
 logger.info("Logger set up!")
@@ -49,6 +52,20 @@ parser.add_argument("--dataset", help="dataset used HR-Crime or UTK", default="H
 parser.add_argument("--batch_size", help="batch size for training", default=100, type=int)
 
 args = parser.parse_args()
+
+# with start_run(run_name=args.filename):
+log_param("filename", args.filename)
+log_param("embed_dim", args.embed_dim)
+log_param("debug", args.debug)
+log_param("epochs", args.epochs)
+log_param("patience", args.patience)
+log_param("k_fold", args.k_fold)
+log_param("lr", args.lr)
+log_param("lr_patience", args.lr_patience)
+log_param("model_type", args.model_type)
+log_param("segment_length", args.segment_length)
+log_param("dataset", args.dataset)
+log_param("batch_size", args.batch_size)
 
 logger.info('Number of arguments given: %s arguments.', str(len(sys.argv)))
 logger.info('Arguments given: %s', ';'.join([str(x) for x in sys.argv]))
@@ -416,8 +433,8 @@ def evaluation(model, data_loader):
             ids, videos, persons, frames, data, categories = batch
             
             labels = torch.tensor([y[0] for y in categories]).to(device)
-            # labels = torch.tensor([y[0] for y in videos]).to(device)
-            # labels = torch.tensor([y[0] for y in categories]).to(device)
+            videos = [y[0] for y in videos]
+            persons = [y[0] for y in persons]
             frames = frames.to(device)
             data = data.to(device)
             
@@ -437,5 +454,34 @@ def evaluation(model, data_loader):
 
 #train model
 train_model(embed_dim=args.embed_dim, epochs=args.epochs)
+
+logger.info('before read_csv')
+df_results = pd.read_csv('/home/s2435462/HRC/results/NTU_2D/testing/' + model_name + '.csv', delimiter=';')
+logger.info('after read_csv')
+
+
+headers = ['CATEGORY','ACCURACY(M)','ACCURACY(W)','PRECISION(W)','RECALL(W)','F1-SCORE(W)', 'TOP_3_ACC', 'TOP_5_ACC']
+
+# Evaluate model performance on all crime categories
+t_all = PrettyTable(headers)
+results, t_all = evaluate_all(df_results, 'ALL', t_all)
+logger.info('\n' + str(t_all))
+
+# with start_run(run_name=args.filename):
+log_metric("accuracy", results['acc'])
+log_metric("balanced_accuracy", results['bal_acc'])
+log_metric("weighted_recall", results['weighted_R'])
+log_metric("weighted_precision", results['weighted_P'])
+log_metric("weighted_f1", results['weighted_f1'])
+log_metric("top_3_accuracy", results['top_3_acc'])
+log_metric("top_5_accuracy", results['top_5_acc'])
+
+#write tables to file
+file_name = '/home/s2435462/HRC/results/model_performance/' + model_name + '.txt'
+with open(file_name, 'w') as w:
+    w.write(str(t_all))
+    w.write('\n\n')
+    w.write(str(t_all))
+
 writer.close()
 logger.info("TRAINING COMPLETED!!!")

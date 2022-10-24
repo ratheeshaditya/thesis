@@ -42,8 +42,8 @@ def evaluate_all(df, category, t):
   weighted_recall = recall_score(y_true, y_pred, average='weighted')
   weighted_precision = precision_score(y_true, y_pred, average='weighted')
   weighted_f1 = f1_score(y_true, y_pred, average='weighted')
-  top_3_accuracy = top_k_accuracy_score(y_true, y_score, k=3)
-  top_5_accuracy = top_k_accuracy_score(y_true, y_score, k=5)
+  top_3_accuracy = top_k_accuracy_score(y_true, y_score, k=3, labels=np.arange(120))
+  top_5_accuracy = top_k_accuracy_score(y_true, y_score, k=5, labels=np.arange(120))
 
   evaluations = [category, '%.4f' % accuracy, '%.4f' % balanced_accuracy, '%.4f' % weighted_precision, '%.4f' % weighted_recall, '%.4f' % weighted_f1, '%.4f' % top_3_accuracy, '%.4f' % top_5_accuracy]
 

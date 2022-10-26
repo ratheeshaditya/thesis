@@ -11,9 +11,9 @@ def SetupFolders(training_name, dataset):
   log_dir = os.path.join(base_folder, 'logs')
   results_dir = os.path.join(base_folder, 'results')
 
-  os.makedirs(model_dir, exist_ok=True)
-  os.makedirs(log_dir, exist_ok=True)
-  os.makedirs(results_dir, exist_ok=True)
+  os.makedirs(model_dir)
+  os.makedirs(log_dir)
+  os.makedirs(results_dir)
 
   return base_folder, model_dir, log_dir, results_dir
 

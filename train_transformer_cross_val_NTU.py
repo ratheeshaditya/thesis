@@ -17,6 +17,7 @@ import time
 import pickle
 import sys
 import csv
+import yaml
 import numpy as np
 import pandas as pd
 import os
@@ -30,40 +31,35 @@ from utils import print_statistics, SetupLogger, evaluate_all, evaluate_category
 # logger.info("Reading args")
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--filename", help="filename to store trained model and results")
-parser.add_argument("--embed_dim", help="embedding dimension used by the model", type=int)
-parser.add_argument("--debug", help="load subset of trajectories in debug mode", action="store_true", default=False)
-parser.add_argument("--epochs", help="maximum number of epochs during training", default=1000, type=int)
-parser.add_argument("--patience", help="patience before early stopping is enabled", default=5, type=int)
-parser.add_argument("--k_fold", help="number of folds used for corss-validation", default=3, type=int)
-parser.add_argument("--lr", help="starting learning rate for adaptive learning", default=0.001, type=float)
-parser.add_argument("--lr_patience", help="patience before learning rate is decreased", default=3, type=int)
-parser.add_argument("--model_type", help="type of model to train, temporal, temporal_2, temporal_3, temporal_4, spatial-temporal or parts", type=str)
-parser.add_argument("--segment_length", help="length of sliding window", default=12, type=int)
-parser.add_argument("--dataset", help="dataset used HR-Crime or UTK", default="HR-Crime", type=str)
-parser.add_argument("--batch_size", help="batch size for training", default=100, type=int)
-
+parser.add_argument("--config_file", help="file from which configs need to be loaded", default="config")
 args = parser.parse_args()
 
-base_folder, model_dir, log_dir, results_dir = SetupFolders(args.filename, args.dataset)
+with open(args.config_file, "r") as ymlfile:
+    cfg = yaml.load(ymlfile, Loader=yaml.FullLoader)
+
+base_folder, model_dir, log_dir, results_dir = SetupFolders(cfg['META']['NAME'], cfg['MODEL']['DATASET'])
 
 logger = SetupLogger('logger', log_dir)
 logger.info("Logger set up!")
-logger.info("Tensorboard set up!")
+logger.info("Tensorboard set up!\n\n\n\n")
+logger.info("FOLDER NAME: %s", cfg['META']['NAME'])
+
+with open(os.path.join(base_folder,'config.yml'), 'w') as config_file:
+    yaml.dump(cfg, config_file)
 
 # with start_run(run_name=args.filename):
-log_param("filename", args.filename)
-log_param("embed_dim", args.embed_dim)
-log_param("debug", args.debug)
-log_param("epochs", args.epochs)
-log_param("patience", args.patience)
-log_param("k_fold", args.k_fold)
-log_param("lr", args.lr)
-log_param("lr_patience", args.lr_patience)
-log_param("model_type", args.model_type)
-log_param("segment_length", args.segment_length)
-log_param("dataset", args.dataset)
-log_param("batch_size", args.batch_size)
+log_param("filename", cfg['META']['NAME'])
+log_param("embed_dim", cfg['MODEL']['EMBED_DIM'])
+log_param("debug", cfg['MODEL']['DEBUG'])
+log_param("epochs", cfg['TRAINING']['EPOCHS'])
+log_param("patience", cfg['TRAINING']['PATIENCE'])
+log_param("k_fold", cfg['TRAINING']['KFOLD'])
+log_param("lr", cfg['TRAINING']['LR'])
+log_param("lr_patience", cfg['TRAINING']['LR_PATIENCE'])
+log_param("model_type", cfg['MODEL']['MODEL_TYPE'])
+log_param("segment_length", cfg['MODEL']['SEGMENT_LEN'])
+log_param("dataset", cfg['MODEL']['DATASET'])
+log_param("batch_size", cfg['TRAINING']['BATCH_SIZE'])
 
 logger.info('Number of arguments given: %s arguments.', str(len(sys.argv)))
 logger.info('Arguments given: %s', ';'.join([str(x) for x in sys.argv]))
@@ -79,7 +75,7 @@ writer = SummaryWriter(log_dir=log_dir)
 
 
 # Set dataset
-dataset = args.dataset
+dataset = cfg['MODEL']['DATASET']
 if dataset=="HR-Crime":
     PIK_train = "./data/train_anomaly_trajectories.dat"
     PIK_test = "./data/test_anomaly_trajectories.dat"
@@ -114,7 +110,7 @@ print_statistics(train_crime_trajectories, test_crime_trajectories, logger)
 
 
 # Set the segment size
-segment_length = args.segment_length
+segment_length = cfg['MODEL']['SEGMENT_LEN']
 # Remove the short trajectories from both train & test datasets
 logger.info("Removing short trajectories")
 train_crime_trajectories = remove_short_trajectories(train_crime_trajectories, input_length=segment_length, input_gap=0, pred_length=0)
@@ -129,15 +125,15 @@ test_crime_trajectories = remove_short_trajectories(test_crime_trajectories, inp
 # else:
 #     print('\nRemoved short trajectories: %d train trajectories and %d test trajectories left' % (len(train_crime_trajectories), len(test_crime_trajectories)))
 
-if args.debug:
+if cfg['MODEL']['DEBUG']:
     train_crime_trajectories = {key: value for key, value in train_crime_trajectories.items() if 'S001' in key or 'S002' in key}
     test_crime_trajectories = {key: value for key, value in test_crime_trajectories.items() if 'S003' in key or 'S004' in key}  
     logger.info('IN DEBUG MODE!!!\n')  
 
 logger.info("Categories: %s", ','.join(all_categories))
 
-model_name = args.filename #e.g. "transformer_model_embed_dim_32"
-embed_dim = args.embed_dim
+model_name = cfg['META']['NAME'] #e.g. "transformer_model_embed_dim_32"
+embed_dim = cfg['MODEL']['EMBED_DIM']
 
 file_name_train = os.path.join(results_dir, 'training.csv')
 file_name_test = os.path.join(results_dir, 'testing.csv')
@@ -147,11 +143,11 @@ logger.info("STARTING TRAINING")
 def train_model(embed_dim, epochs):
 
     # Set batch size
-    batch_size = args.batch_size
+    batch_size = cfg['TRAINING']['BATCH_SIZE']
     
     # prepare cross validation
 
-    n = args.k_fold
+    n = cfg['TRAINING']['KFOLD']
     
     logger.info("Applying K-Fold with k = %d", n) 
     kf = KFold(n_splits=n, random_state=42, shuffle=True)
@@ -219,17 +215,17 @@ def train_model(embed_dim, epochs):
 
         logger.info("Creating the model.")
         #intialize model
-        if args.model_type == 'temporal':
+        if cfg['MODEL']['MODEL_TYPE'] == 'temporal':
                 model = TemporalTransformer(embed_dim=embed_dim, num_frames=segment_length, num_classes=num_classes, num_joints=num_joints, in_chans=in_chans, mlp_ratio=2., qkv_bias=True, qk_scale=None, dropout=0.1)
-        elif args.model_type == 'temporal_2':
+        elif cfg['MODEL']['MODEL_TYPE'] == 'temporal_2':
                 model = TemporalTransformer_2(embed_dim=embed_dim, num_frames=segment_length, num_classes=num_classes, num_joints=num_joints, in_chans=in_chans, mlp_ratio=2., qkv_bias=True, qk_scale=None, dropout=0.1)
-        elif args.model_type == 'temporal_3':
+        elif cfg['MODEL']['MODEL_TYPE'] == 'temporal_3':
                 model = TemporalTransformer_3(embed_dim=embed_dim, num_frames=segment_length, num_classes=num_classes, num_joints=num_joints, num_parts=num_parts, in_chans=in_chans, mlp_ratio=2., qkv_bias=True, qk_scale=None, dropout=0.1)
-        elif args.model_type == 'temporal_4':
+        elif cfg['MODEL']['MODEL_TYPE'] == 'temporal_4':
                 model = TemporalTransformer_4(embed_dim=embed_dim, num_frames=segment_length, num_classes=num_classes, num_joints=num_joints, num_parts=num_parts, in_chans=in_chans, mlp_ratio=2., qkv_bias=True, qk_scale=None, dropout=0.1)
-        elif args.model_type == 'spatial-temporal':
+        elif cfg['MODEL']['MODEL_TYPE'] == 'spatial-temporal':
             model = SpatialTemporalTransformer(embed_dim_ratio=embed_dim, num_frames=segment_length, num_classes=num_classes, num_joints=num_joints, in_chans=in_chans, mlp_ratio=2., qkv_bias=True, qk_scale=None, dropout=0.1)
-        elif args.model_type == "parts":
+        elif cfg['MODEL']['MODEL_TYPE'] == "parts":
             model = BodyPartTransformer(embed_dim_ratio=embed_dim, num_frames=segment_length, num_classes=num_classes, num_joints=num_joints, in_chans=in_chans, mlp_ratio=2., qkv_bias=True, qk_scale=None, dropout=0.1)
         else:
             raise Exception('model_type is missing, must be temporal, temporal_2, temporal_3, temporal_4, spatial-temporal or parts')
@@ -247,18 +243,18 @@ def train_model(embed_dim, epochs):
                 nn.init.xavier_uniform_(p)
         
         # Define optimizer
-        optim = torch.optim.Adam(model.parameters(), lr=args.lr, betas=(0.9, 0.98), eps=1e-9)
+        optim = torch.optim.Adam(model.parameters(), lr=cfg['TRAINING']['LR'], betas=(0.9, 0.98), eps=1e-9)
         
         '''
         Define scheduler for adaptive learning
         learning rate patience < early stopping patience
         '''
-        lr_patience = args.lr_patience
+        lr_patience = cfg['TRAINING']['LR_PATIENCE']
         scheduler = ReduceLROnPlateau(optim, patience = lr_patience, verbose=True) 
             
         # Early stopping parameters
         min_loss = inf
-        patience =  args.patience
+        patience =  cfg['TRAINING']['PATIENCE']
         logger.info('Early stopping patience: %d', patience)
         trigger_times = 0
             
@@ -441,7 +437,7 @@ def evaluation(model, data_loader):
     
 
 #train model
-train_model(embed_dim=args.embed_dim, epochs=args.epochs)
+train_model(embed_dim=cfg['MODEL']['EMBED_DIM'], epochs=cfg['TRAINING']['EPOCHS'])
 
 logger.info('before read_csv')
 df_results = pd.read_csv(file_name_test, delimiter=';')

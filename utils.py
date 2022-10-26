@@ -17,22 +17,21 @@ def SetupFolders(training_name, dataset):
 
   return base_folder, model_dir, log_dir, results_dir
 
-def SetupLogger(name, log_dir):
+def SetupLogger(name, log_dir=None):
     logger = logging.getLogger(name)
     logger.setLevel(logging.INFO)
+    formatter = logging.Formatter('%(asctime)s %(message)s')
 
     sh = logging.StreamHandler(stream=sys.stdout)
     sh.setLevel(logging.INFO)
-
-    fh = logging.FileHandler(os.path.join(log_dir, 'logs.log'))
-    fh.setLevel(logging.INFO)
-
-    formatter = logging.Formatter('%(asctime)s %(message)s')
     sh.setFormatter(formatter)
-    fh.setFormatter(formatter)
-    
     logger.addHandler(sh)
-    logger.addHandler(fh)
+
+    if log_dir:
+      fh = logging.FileHandler(os.path.join(log_dir, 'logs.log'))
+      fh.setLevel(logging.INFO)
+      fh.setFormatter(formatter)
+      logger.addHandler(fh)
 
     return logger
 

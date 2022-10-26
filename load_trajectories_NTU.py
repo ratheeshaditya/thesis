@@ -48,7 +48,6 @@ def load_trajectories(trajectories_path, classes):
                                                         coordinates=trajectory_coordinates,
                                                         category = category_index,
                                                         dimension = dimension)
-
   logger.info('count = %d', count_t)
   return trajectories
 
@@ -60,7 +59,7 @@ trajectories = load_trajectories(path, all_categories)
 logger.info('Loaded %d trajectories.', len(trajectories))
 
 #save trajectories
-PIK = "/home/s2435462/HRC/data/trajectories_NTU_new_"+dimension+".dat"
+PIK = "/home/s2435462/HRC/data/trajectories_NTU_"+dimension+".dat"
 
 with open(PIK, "wb") as f:
   pickle.dump(trajectories, f)
@@ -75,8 +74,8 @@ trajectories_train, trajectories_test = split_into_train_and_test(trajectories, 
 logger.info('%d train trajectories and %d test trajectories', len(trajectories_train), len(trajectories_test))
 
 #save trajectories for train and test
-PIK_train = "/home/s2435462/HRC/data/trajectories_train_NTU_new_"+ dimension +".dat"
-PIK_test = "/home/s2435462/HRC/data/trajectories_test_NTU_new_"+ dimension +".dat"
+PIK_train = "/home/s2435462/HRC/data/trajectories_train_NTU_"+ dimension +".dat"
+PIK_test = "/home/s2435462/HRC/data/trajectories_test_NTU_"+ dimension +".dat"
 
 with open(PIK_train, "wb") as f:
   pickle.dump(trajectories_train, f)

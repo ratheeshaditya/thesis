@@ -3,7 +3,7 @@
 #SBATCH -J load_trajectories_NTU                   # job name, don't use spaces, keep it short
 #SBATCH -c 8                          # number of cores, 1
 #SBATCH --gres=gpu:1                  # number of gpus 1, some clusters don't have GPUs
-#SBATCH --mem=4gb                     # Job memory request
+#SBATCH --mem=8gb                     # Job memory request
 #SBATCH --mail-type=END,FAIL          # email status changes (NONE, BEGIN, END, FAIL, ALL)
 #SBATCH --mail-user=a.m.joseph@student.utwente.nl   # Where to send mail to
 #SBATCH --output=../../out/log/load_trajectories_NTU_%j.log      # Standard output and error log

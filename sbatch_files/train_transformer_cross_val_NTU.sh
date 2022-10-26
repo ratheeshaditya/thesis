@@ -1,9 +1,9 @@
 #!/bin/bash
 # parameters for slurm
 #SBATCH -J training                   # job name, don't use spaces, keep it short
-#SBATCH -c 8                          # number of cores, 1
+#SBATCH -c 32                          # number of cores, 1
 #SBATCH --gres=gpu:1                  # number of gpus 1, some clusters don't have GPUs
-#SBATCH --mem=16gb                     # Job memory request
+#SBATCH --mem=64gb                     # Job memory request
 #SBATCH --mail-type=END,FAIL          # email status changes (NONE, BEGIN, END, FAIL, ALL)
 #SBATCH --mail-user=a.m.joseph@student.utwente.nl   # Where to send mail to
 #SBATCH --output=/home/s2435462/HRC/out/log/training_%j.log      # Standard output and error log
@@ -33,5 +33,5 @@ echo "Starting worker: "
 echo $CONDA_DEFAULT_ENV
 
 # python -u ../train_transformer_cross_val_NTU.py --filename training_NTU_2D_128d_100e_10p_001 --lr 0.001 --embed_dim 128 --dataset NTU_2D --model_type temporal --epochs 100 --patience 10
-# python -u ../train_transformer_cross_val_NTU.py --filename x_shape_test --embed_dim 128 --dataset NTU_2D --model_type temporal --epochs 5
-python -u ../train_transformer_cross_val_NTU.py --filename tensorboard_test_9 --lr 0.001 --embed_dim 32 --dataset NTU_2D --model_type temporal --epochs 2 --patience 10 --batch_size 3000 --debug
+python -u ../train_transformer_cross_val_NTU.py --filename folder_test --embed_dim 32 --dataset NTU_2D --model_type temporal --epochs 2 --debug --k_fold 2
+# python -u ../train_transformer_cross_val_NTU.py --filename temporal_2 --lr 0.001 --embed_dim 128 --dataset NTU_2D --model_type temporal_2 --epochs 100 --patience 10 --batch_size 2000

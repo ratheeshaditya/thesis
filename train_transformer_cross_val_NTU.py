@@ -25,17 +25,9 @@ import argparse
 
 from trajectory import Trajectory, TrajectoryDataset, extract_fixed_sized_segments, split_into_train_and_test, remove_short_trajectories, get_categories, get_UTK_categories, get_NTU_categories
 from transformer import TemporalTransformer_4, TemporalTransformer_3, TemporalTransformer_2, BodyPartTransformer, SpatialTemporalTransformer, TemporalTransformer, Block, Attention, Mlp
-from utils import print_statistics, SetupLogger, evaluate_all, evaluate_category, conv_to_float
+from utils import print_statistics, SetupLogger, evaluate_all, evaluate_category, conv_to_float, SetupFolders
 
-logger = SetupLogger('logger')
-logger.info("Logger set up!")
-logger.info("Tensorboard set up!")
-
-
-# logging.basicConfig(format='%(asctime)s %(message)s', level=logging.INFO)
-
-logger.info("Reading args")
-# print ("Before args: "+time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()))
+# logger.info("Reading args")
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--filename", help="filename to store trained model and results")
@@ -52,6 +44,12 @@ parser.add_argument("--dataset", help="dataset used HR-Crime or UTK", default="H
 parser.add_argument("--batch_size", help="batch size for training", default=100, type=int)
 
 args = parser.parse_args()
+
+base_folder, model_dir, log_dir, results_dir = SetupFolders(args.filename, args.dataset)
+
+logger = SetupLogger('logger', log_dir)
+logger.info("Logger set up!")
+logger.info("Tensorboard set up!")
 
 # with start_run(run_name=args.filename):
 log_param("filename", args.filename)
@@ -77,7 +75,7 @@ device = "cuda:0" if torch.cuda.is_available() else "cpu"
 logger.info('Available devices: %s', torch.cuda.device_count())
 logger.info('Current cuda device: %s ', str(torch.cuda.current_device()))
 
-writer = SummaryWriter(log_dir="/home/s2435462/HRC/results/tensorboard_logs/"+args.filename)
+writer = SummaryWriter(log_dir=log_dir)
 
 
 # Set dataset
@@ -141,6 +139,9 @@ logger.info("Categories: %s", ','.join(all_categories))
 model_name = args.filename #e.g. "transformer_model_embed_dim_32"
 embed_dim = args.embed_dim
 
+file_name_train = os.path.join(results_dir, 'training.csv')
+file_name_test = os.path.join(results_dir, 'testing.csv')
+
 logger.info("STARTING TRAINING")
 
 def train_model(embed_dim, epochs):
@@ -157,28 +158,20 @@ def train_model(embed_dim, epochs):
     
     #file to save results
     if dataset == "HR-Crime":
-        file_name_train = '/data/s3447707/MasterThesis/training_results/' + model_name + '.csv'
-        file_name_test = '/data/s3447707/MasterThesis/testing_results/' + model_name + '.csv'
         num_classes = 13
         num_joints = 17
         num_parts = 5
         in_chans = 2
     elif dataset == "UTK":
-        file_name_train = '/data/s3447707/MasterThesis/UTK_training_results/' + model_name + '.csv'
-        file_name_test = '/data/s3447707/MasterThesis/UTK_testing_results/' + model_name + '.csv'
         num_classes = 10
         num_joints = 20
         in_chans = 3
     elif "NTU" in dataset:
         if "2D" in dataset:
-            file_name_train = '/home/s2435462/HRC/results/NTU_2D/training/' + model_name + '.csv'
-            file_name_test = '/home/s2435462/HRC/results/NTU_2D/testing/' + model_name + '.csv'
             num_classes = 120
             num_joints = 25
             in_chans = 2
         elif "3D" in dataset:
-            file_name_train = '/home/s2435462/HRC/results/NTU_3D/training/' + model_name + '.csv'
-            file_name_test = '/home/s2435462/HRC/results/NTU_3D/testing/' + model_name + '.csv'
             num_classes = 120
             num_joints = 25
             in_chans = 3
@@ -280,7 +273,7 @@ def train_model(embed_dim, epochs):
             
             model.train()
 
-            logger.info("Enumerating Train loader")
+            # logger.info("Enumerating Train loader")
         
             for iter, batch in enumerate(train_dataloader, 1):
                 # print(batch)
@@ -357,12 +350,7 @@ def train_model(embed_dim, epochs):
                 temp = time.time()
                 
                 #Save trained model
-                if dataset == "HR-Crime":   
-                    PATH = "/data/s3447707/MasterThesis/trained_models/" + model_name + "_fold_" + str(fold) + ".pt"
-                elif dataset == "UTK":
-                    PATH = "/data/s3447707/MasterThesis/UTK_trained_models/" + model_name + "_fold_" + str(fold) + ".pt"
-                elif "NTU" in dataset:
-                    PATH = "/home/s2435462/HRC/trained_models/" + model_name + "_fold_" + str(fold) + ".pt"
+                PATH = os.path.join(model_dir,  model_name + "_fold_" + str(fold) + ".pt")
                     
                 #Save trained model
                 torch.save(model, PATH)
@@ -456,7 +444,7 @@ def evaluation(model, data_loader):
 train_model(embed_dim=args.embed_dim, epochs=args.epochs)
 
 logger.info('before read_csv')
-df_results = pd.read_csv('/home/s2435462/HRC/results/NTU_2D/testing/' + model_name + '.csv', delimiter=';')
+df_results = pd.read_csv(file_name_test, delimiter=';')
 logger.info('after read_csv')
 
 
@@ -477,7 +465,7 @@ log_metric("top_3_accuracy", results['top_3_acc'])
 log_metric("top_5_accuracy", results['top_5_acc'])
 
 #write tables to file
-file_name = '/home/s2435462/HRC/results/model_performance/' + model_name + '.txt'
+file_name = os.path.join(results_dir, 'final_performance.txt')
 with open(file_name, 'w') as w:
     w.write(str(t_all))
     w.write('\n\n')

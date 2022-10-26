@@ -6,8 +6,8 @@
 #SBATCH --mem=4gb                     # Job memory request
 #SBATCH --mail-type=END,FAIL          # email status changes (NONE, BEGIN, END, FAIL, ALL)
 #SBATCH --mail-user=a.m.joseph@student.utwente.nl   # Where to send mail to
-#SBATCH --output=../../out/log/calculate_performance_%j.log      # Standard output and error log
-#SBATCH --error=../../out/err/calculate_performance_%j.err                # if yoou want the errors logged seperately
+#SBATCH --output=/home/s2435462/HRC/out/log/calculate_performance_%j.log      # Standard output and error log
+#SBATCH --error=/home/s2435462/HRC/out/err/calculate_performance_%j.err                # if yoou want the errors logged seperately
 #SBATCH --partition=main # Here 50..is the partition name..can be checked via sinfo
  
 # Create a directory for this job on the node
@@ -31,4 +31,4 @@ echo "Gpu devices                 : "$CUDA_VISIBLE_DEVICES
 echo "Starting worker: "
 echo $CONDA_DEFAULT_ENV
 
-python ../calculate_performance.py --filename NTU_2Dtest_128
+python ../calculate_performance.py --filename tensorboard_test_7

@@ -141,9 +141,9 @@ If the patience is exceeded or the final epoch is done, the training is stopped.
 TensorBoard
 MLflow
 
-check batch input shape? Together or one by one?
+DataParallel
 
-NTU120 on the existing models
+NTU120 2D and 3D on the existing models
 
 Move saved data to dataset storage
 

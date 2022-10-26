@@ -2,18 +2,37 @@ from statistics import mean
 from sklearn.metrics import balanced_accuracy_score, accuracy_score, precision_score, recall_score, f1_score, top_k_accuracy_score
 import logging
 import sys
+import os
 import numpy as np
 
-def SetupLogger(name):
+def SetupFolders(training_name, dataset):
+  base_folder = os.path.join('/home/s2435462/HRC/results', dataset, training_name)
+  model_dir = os.path.join(base_folder, 'models')
+  log_dir = os.path.join(base_folder, 'logs')
+  results_dir = os.path.join(base_folder, 'results')
+
+  os.makedirs(model_dir, exist_ok=True)
+  os.makedirs(log_dir, exist_ok=True)
+  os.makedirs(results_dir, exist_ok=True)
+
+  return base_folder, model_dir, log_dir, results_dir
+
+def SetupLogger(name, log_dir):
     logger = logging.getLogger(name)
     logger.setLevel(logging.INFO)
 
-    ch = logging.StreamHandler(stream=sys.stdout)
-    ch.setLevel(logging.INFO)
+    sh = logging.StreamHandler(stream=sys.stdout)
+    sh.setLevel(logging.INFO)
+
+    fh = logging.FileHandler(os.path.join(log_dir, 'logs.log'))
+    fh.setLevel(logging.INFO)
 
     formatter = logging.Formatter('%(asctime)s %(message)s')
-    ch.setFormatter(formatter)
-    logger.addHandler(ch)
+    sh.setFormatter(formatter)
+    fh.setFormatter(formatter)
+    
+    logger.addHandler(sh)
+    logger.addHandler(fh)
 
     return logger
 

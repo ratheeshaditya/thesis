@@ -319,107 +319,186 @@ class TemporalTransformer_2(nn.Module):
         return x
 
 
-def get_average_body_parts(x):
-    
-    #x_torso = x[:, :, 0:9*2]
-    x_torso_1 = x[:, :, 0:7*2] #joints 0,1,2,3,4,5,6 (head and shoulders) 
-    x_torso_2 = x[:, :, 11*2:13*2] #joints 11,12 (hips)
-    #print('x_torso_1[0]', x_torso_1[0])
-    #print('x_torso_2[0]', x_torso_2[0])
-    x_torso = torch.cat((x_torso_1, x_torso_2), dim=2)
-    #print('x_torso[0]', x_torso[0])
-    
-    x_elbow = x[:, :, 7*2:9*2]
-    x_wrist = x[:, :, 9*2:11*2]
-    x_knee = x[:, :, 13*2:15*2]
-    x_ankle = x[:, :, 15*2:17*2]
+def get_average_body_parts(num_joints, x):
+    if num_joints == 25:
+        dim = int(x.size(2)/25)
+        x_torso_1 = x[:, :, 0:5*dim]
+        x_torso_2 = x[:, :, 8*dim:9*dim]
+        x_torso_3 = x[:, :, 12*dim:13*dim]
+        x_torso_4 = x[:, :, 16*dim:17*dim]
+        x_torso_5 = x[:, :, 20*dim:21*dim]
+        x_torso = torch.cat((x_torso_1, x_torso_2, x_torso_3, x_torso_4, x_torso_5), dim=2)
 
-    '''
-    print('x_torso shape', x_torso.shape)
-    print('x_elbow shape', x_elbow.shape)
-    print('x_wrist shape', x_wrist.shape)
-    print('x_knee shape', x_knee.shape)
-    print('x_ankle shape', x_ankle.shape)
-    '''
+        x_wrist_1 = x[:, :, 6*dim:7*dim]
+        x_wrist_2 = x[:, :, 7*dim:8*dim]
+        x_wrist_3 = x[:, :, 10*dim:11*dim]
+        x_wrist_4 = x[:, :, 11*dim:12*dim]
+        x_wrist_5 = x[:, :, 21*dim:22*dim]
+        x_wrist_6 = x[:, :, 22*dim:23*dim]
+        x_wrist_7 = x[:, :, 23*dim:24*dim]
+        x_wrist_8 = x[:, :, 24*dim:25*dim]
+        x_wrist = torch.cat((x_wrist_1, x_wrist_2, x_wrist_3, x_wrist_4, x_wrist_5, x_wrist_6, x_wrist_7, x_wrist_8), dim=2)
 
-    x_torso_x = x_torso[:, :, ::2]
-    x_elbow_x = x_elbow[:, :, ::2]
-    x_wrist_x = x_wrist[:, :, ::2]
-    x_knee_x = x_knee[:, :, ::2]
-    x_ankle_x = x_ankle[:, :, ::2]
+        x_elbow_1 = x[:, :, 9*dim:10*dim]
+        x_elbow_2 = x[:, :, 5*dim:6*dim]
+        x_elbow = torch.cat((x_elbow_1, x_elbow_2), dim=2)
 
-    '''
-    print('\nx_torso_x shape', x_torso_x.shape)
-    print('x_elbow_x shape', x_elbow_x.shape)
-    print('x_wrist_x shape', x_wrist_x.shape)
-    print('x_knee_x shape', x_knee_x.shape)
-    print('x_ankle_x shape', x_ankle_x.shape)
-    '''
+        x_knee_1 = x[:, :, 17*dim:18*dim]
+        x_knee_2 = x[:, :, 13*dim:14*dim]
+        x_knee = torch.cat((x_knee_1, x_knee_2), dim=2)
 
-    x_torso_y = x_torso[:, :, 1::2]
-    x_elbow_y = x_elbow[:, :, 1::2]
-    x_wrist_y = x_wrist[:, :, 1::2]
-    x_knee_y = x_knee[:, :, 1::2]
-    x_ankle_y = x_ankle[:, :, 1::2]
+        x_ankle_1 = x[:, :, 18*dim:19*dim]
+        x_ankle_2 = x[:, :, 19*dim:20*dim]
+        x_ankle_3 = x[:, :, 14*dim:15*dim]
+        x_ankle_4 = x[:, :, 15*dim:16*dim]
+        x_ankle = torch.cat((x_ankle_1, x_ankle_2, x_ankle_3, x_ankle_4), dim=2)
 
-    #print('\nx_torso_x', x_torso_x)
-    #print('x_torso_y', x_torso_y)
+        x_torso_x = x_torso[:, :, ::2]
+        x_elbow_x = x_elbow[:, :, ::2]
+        x_wrist_x = x_wrist[:, :, ::2]
+        x_knee_x = x_knee[:, :, ::2]
+        x_ankle_x = x_ankle[:, :, ::2]
 
-    x_torso_x = torch.mean(torch.Tensor.float(x_torso_x), dim=2)
-    x_elbow_x = torch.mean(torch.Tensor.float(x_elbow_x), dim=2)
-    x_wrist_x = torch.mean(torch.Tensor.float(x_wrist_x), dim=2)
-    x_knee_x = torch.mean(torch.Tensor.float(x_knee_x), dim=2)
-    x_ankle_x = torch.mean(torch.Tensor.float(x_ankle_x), dim=2)
+        x_torso_y = x_torso[:, :, 1::2]
+        x_elbow_y = x_elbow[:, :, 1::2]
+        x_wrist_y = x_wrist[:, :, 1::2]
+        x_knee_y = x_knee[:, :, 1::2]
+        x_ankle_y = x_ankle[:, :, 1::2]
 
-    x_torso_y = torch.mean(torch.Tensor.float(x_torso_y), dim=2)
-    x_elbow_y = torch.mean(torch.Tensor.float(x_elbow_y), dim=2)
-    x_wrist_y = torch.mean(torch.Tensor.float(x_wrist_y), dim=2)
-    x_knee_y = torch.mean(torch.Tensor.float(x_knee_y), dim=2)
-    x_ankle_y = torch.mean(torch.Tensor.float(x_ankle_y), dim=2)
+        x_torso_x = torch.mean(torch.Tensor.float(x_torso_x), dim=2)
+        x_elbow_x = torch.mean(torch.Tensor.float(x_elbow_x), dim=2)
+        x_wrist_x = torch.mean(torch.Tensor.float(x_wrist_x), dim=2)
+        x_knee_x = torch.mean(torch.Tensor.float(x_knee_x), dim=2)
+        x_ankle_x = torch.mean(torch.Tensor.float(x_ankle_x), dim=2)
 
-    x_torso_x = torch.unsqueeze(x_torso_x, 2)
-    x_elbow_x = torch.unsqueeze(x_elbow_x, 2)
-    x_wrist_x = torch.unsqueeze(x_wrist_x, 2)
-    x_knee_x = torch.unsqueeze(x_knee_x, 2)
-    x_ankle_x = torch.unsqueeze(x_ankle_x, 2)
+        x_torso_y = torch.mean(torch.Tensor.float(x_torso_y), dim=2)
+        x_elbow_y = torch.mean(torch.Tensor.float(x_elbow_y), dim=2)
+        x_wrist_y = torch.mean(torch.Tensor.float(x_wrist_y), dim=2)
+        x_knee_y = torch.mean(torch.Tensor.float(x_knee_y), dim=2)
+        x_ankle_y = torch.mean(torch.Tensor.float(x_ankle_y), dim=2)
 
-    x_torso_y = torch.unsqueeze(x_torso_y, 2)
-    x_elbow_y = torch.unsqueeze(x_elbow_y, 2)
-    x_wrist_y = torch.unsqueeze(x_wrist_y, 2)
-    x_knee_y = torch.unsqueeze(x_knee_y, 2)
-    x_ankle_y = torch.unsqueeze(x_ankle_y, 2)
+        x_torso_x = torch.unsqueeze(x_torso_x, 2)
+        x_elbow_x = torch.unsqueeze(x_elbow_x, 2)
+        x_wrist_x = torch.unsqueeze(x_wrist_x, 2)
+        x_knee_x = torch.unsqueeze(x_knee_x, 2)
+        x_ankle_x = torch.unsqueeze(x_ankle_x, 2)
 
-    '''
-    print('\nx_torso_x shape', x_torso_x.shape)
-    print('x_elbow_x shape', x_elbow_x.shape)
-    print('x_wrist_x shape', x_wrist_x.shape)
-    print('x_knee_x shape', x_knee_x.shape)
-    print('x_ankle_x shape', x_ankle_x.shape)
+        x_torso_y = torch.unsqueeze(x_torso_y, 2)
+        x_elbow_y = torch.unsqueeze(x_elbow_y, 2)
+        x_wrist_y = torch.unsqueeze(x_wrist_y, 2)
+        x_knee_y = torch.unsqueeze(x_knee_y, 2)
+        x_ankle_y = torch.unsqueeze(x_ankle_y, 2)
 
-    print('\nx_torso_x', x_torso_x)
-    print('x_torso_y', x_torso_y)
-    '''
+        x_torso = torch.cat((x_torso_x, x_torso_y), dim=2)
+        x_elbow = torch.cat((x_elbow_x, x_elbow_y), dim=2)
+        x_wrist = torch.cat((x_wrist_x, x_wrist_y), dim=2)
+        x_knee = torch.cat((x_knee_x, x_knee_y), dim=2)
+        x_ankle = torch.cat((x_ankle_x, x_ankle_y), dim=2)
+
+        x = torch.cat((x_torso, x_elbow, x_wrist, x_knee, x_ankle), dim=2)
+        return x
 
 
-    x_torso = torch.cat((x_torso_x, x_torso_y), dim=2)
-    x_elbow = torch.cat((x_elbow_x, x_elbow_y), dim=2)
-    x_wrist = torch.cat((x_wrist_x, x_wrist_y), dim=2)
-    x_knee = torch.cat((x_knee_x, x_knee_y), dim=2)
-    x_ankle = torch.cat((x_ankle_x, x_ankle_y), dim=2)
+    elif num_joints == 17:
+        #x_torso = x[:, :, 0:9*2]
+        x_torso_1 = x[:, :, 0:7*2] #joints 0,1,2,3,4,5,6 (head and shoulders) 
+        x_torso_2 = x[:, :, 11*2:13*2] #joints 11,12 (hips)
+        #print('x_torso_1[0]', x_torso_1[0])
+        #print('x_torso_2[0]', x_torso_2[0])
+        x_torso = torch.cat((x_torso_1, x_torso_2), dim=2)
+        #print('x_torso[0]', x_torso[0])
+        
+        x_elbow = x[:, :, 7*2:9*2]
+        x_wrist = x[:, :, 9*2:11*2]
+        x_knee = x[:, :, 13*2:15*2]
+        x_ankle = x[:, :, 15*2:17*2]
 
-    '''
-    print('\nx_torso shape', x_torso.shape)
-    print('x_elbow shape', x_elbow.shape)
-    print('x_wrist shape', x_wrist.shape)
-    print('x_knee shape', x_knee.shape)
-    print('x_ankle shape', x_ankle.shape)
+        '''
+        print('x_torso shape', x_torso.shape)
+        print('x_elbow shape', x_elbow.shape)
+        print('x_wrist shape', x_wrist.shape)
+        print('x_knee shape', x_knee.shape)
+        print('x_ankle shape', x_ankle.shape)
+        '''
 
-    print('\nx_torso', x_torso)
-    print('\nx_ankle', x_ankle)
-    '''
+        x_torso_x = x_torso[:, :, ::2]
+        x_elbow_x = x_elbow[:, :, ::2]
+        x_wrist_x = x_wrist[:, :, ::2]
+        x_knee_x = x_knee[:, :, ::2]
+        x_ankle_x = x_ankle[:, :, ::2]
 
-    x = torch.cat((x_torso, x_elbow, x_wrist, x_knee, x_ankle), dim=2)
-    return x
+        '''
+        print('\nx_torso_x shape', x_torso_x.shape)
+        print('x_elbow_x shape', x_elbow_x.shape)
+        print('x_wrist_x shape', x_wrist_x.shape)
+        print('x_knee_x shape', x_knee_x.shape)
+        print('x_ankle_x shape', x_ankle_x.shape)
+        '''
+
+        x_torso_y = x_torso[:, :, 1::2]
+        x_elbow_y = x_elbow[:, :, 1::2]
+        x_wrist_y = x_wrist[:, :, 1::2]
+        x_knee_y = x_knee[:, :, 1::2]
+        x_ankle_y = x_ankle[:, :, 1::2]
+
+        #print('\nx_torso_x', x_torso_x)
+        #print('x_torso_y', x_torso_y)
+
+        x_torso_x = torch.mean(torch.Tensor.float(x_torso_x), dim=2)
+        x_elbow_x = torch.mean(torch.Tensor.float(x_elbow_x), dim=2)
+        x_wrist_x = torch.mean(torch.Tensor.float(x_wrist_x), dim=2)
+        x_knee_x = torch.mean(torch.Tensor.float(x_knee_x), dim=2)
+        x_ankle_x = torch.mean(torch.Tensor.float(x_ankle_x), dim=2)
+
+        x_torso_y = torch.mean(torch.Tensor.float(x_torso_y), dim=2)
+        x_elbow_y = torch.mean(torch.Tensor.float(x_elbow_y), dim=2)
+        x_wrist_y = torch.mean(torch.Tensor.float(x_wrist_y), dim=2)
+        x_knee_y = torch.mean(torch.Tensor.float(x_knee_y), dim=2)
+        x_ankle_y = torch.mean(torch.Tensor.float(x_ankle_y), dim=2)
+
+        x_torso_x = torch.unsqueeze(x_torso_x, 2)
+        x_elbow_x = torch.unsqueeze(x_elbow_x, 2)
+        x_wrist_x = torch.unsqueeze(x_wrist_x, 2)
+        x_knee_x = torch.unsqueeze(x_knee_x, 2)
+        x_ankle_x = torch.unsqueeze(x_ankle_x, 2)
+
+        x_torso_y = torch.unsqueeze(x_torso_y, 2)
+        x_elbow_y = torch.unsqueeze(x_elbow_y, 2)
+        x_wrist_y = torch.unsqueeze(x_wrist_y, 2)
+        x_knee_y = torch.unsqueeze(x_knee_y, 2)
+        x_ankle_y = torch.unsqueeze(x_ankle_y, 2)
+
+        '''
+        print('\nx_torso_x shape', x_torso_x.shape)
+        print('x_elbow_x shape', x_elbow_x.shape)
+        print('x_wrist_x shape', x_wrist_x.shape)
+        print('x_knee_x shape', x_knee_x.shape)
+        print('x_ankle_x shape', x_ankle_x.shape)
+
+        print('\nx_torso_x', x_torso_x)
+        print('x_torso_y', x_torso_y)
+        '''
+
+
+        x_torso = torch.cat((x_torso_x, x_torso_y), dim=2)
+        x_elbow = torch.cat((x_elbow_x, x_elbow_y), dim=2)
+        x_wrist = torch.cat((x_wrist_x, x_wrist_y), dim=2)
+        x_knee = torch.cat((x_knee_x, x_knee_y), dim=2)
+        x_ankle = torch.cat((x_ankle_x, x_ankle_y), dim=2)
+
+        '''
+        print('\nx_torso shape', x_torso.shape)
+        print('x_elbow shape', x_elbow.shape)
+        print('x_wrist shape', x_wrist.shape)
+        print('x_knee shape', x_knee.shape)
+        print('x_ankle shape', x_ankle.shape)
+
+        print('\nx_torso', x_torso)
+        print('\nx_ankle', x_ankle)
+        '''
+
+        x = torch.cat((x_torso, x_elbow, x_wrist, x_knee, x_ankle), dim=2)
+        return x
 
 
 #Input frame sequences of average body parts coordinates
@@ -451,6 +530,8 @@ class TemporalTransformer_3(nn.Module):
         print('in_chans', in_chans)
         print('num_joints', num_joints)
         print('num_parts', num_parts)
+
+        self.num_joints = num_joints
 
         ### patch embedding
         self.embedding = nn.Linear(num_parts*in_chans, embed_dim)
@@ -540,7 +621,7 @@ class TemporalTransformer_3(nn.Module):
     
     def forward(self, x):
         
-        x = get_average_body_parts(x)
+        x = get_average_body_parts(self.num_joints, x)
         #print('x[0]', x[0])
 
         #print('x.shape', x.shape)

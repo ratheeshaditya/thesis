@@ -13,6 +13,7 @@ from random import shuffle
 from sklearn.model_selection import KFold
 from prettytable import PrettyTable
 from mlflow import log_metric, log_param, start_run
+from datetime import timedelta
 import time
 import pickle
 import sys
@@ -29,6 +30,8 @@ from transformer import TemporalTransformer_4, TemporalTransformer_3, TemporalTr
 from utils import print_statistics, SetupLogger, evaluate_all, evaluate_category, conv_to_float, SetupFolders
 
 # logger.info("Reading args")
+
+begin_time = time.time()
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--config_file", help="file from which configs need to be loaded", default="config")
@@ -166,10 +169,12 @@ def train_model(embed_dim, epochs):
         if "2D" in dataset:
             num_classes = 120
             num_joints = 25
+            num_parts = 5
             in_chans = 2
         elif "3D" in dataset:
             num_classes = 120
             num_joints = 25
+            num_parts = 5
             in_chans = 3
     
     with open(file_name_train, 'a') as csv_file_train:
@@ -197,7 +202,6 @@ def train_model(embed_dim, epochs):
     logger.info("Starting K-Fold")
 
     # K-fold Cross Validation model evaluation
-    #### CHECK THIS TRAIN.TRAJECTORY_IDS !!!!!
     for fold, (train_ids, val_ids) in enumerate(kf.split(train.trajectory_ids()), 1):
         logger.info('\nfold: %d, train: %d, test: %d', fold, len(train_ids), len(val_ids))
 
@@ -208,8 +212,6 @@ def train_model(embed_dim, epochs):
 
         logger.info("Creating Train and Validation dataloaders.")
 
-        # train_dataloader = torch.utils.data.DataLoader([ [traj_categories_train[i], traj_videos_train[i], traj_persons_train[i], traj_frames_train[i], X_train[i]] for i in train_ids], shuffle=True, batch_size=100)
-        # val_dataloader = torch.utils.data.DataLoader([ [traj_categories_train[i], traj_videos_train[i], traj_persons_train[i], traj_frames_train[i], X_train[i]] for i in val_ids], shuffle=True, batch_size=100)
         train_dataloader = torch.utils.data.DataLoader(train_subset, batch_size = batch_size, shuffle=True)
         val_dataloader = torch.utils.data.DataLoader(val_subset, batch_size = batch_size, shuffle=True)
 
@@ -272,23 +274,15 @@ def train_model(embed_dim, epochs):
             # logger.info("Enumerating Train loader")
         
             for iter, batch in enumerate(train_dataloader, 1):
-                # print(batch)
-                # print(type(batch))
                 ids, videos, persons, frames, data, categories = batch
                 
-                # labels = labels.to(device)
                 labels = torch.tensor([y[0] for y in categories]).to(device)
-                videos = videos#.to(device)
-                persons = persons#.to(device)
+                videos = videos
+                persons = persons
                 frames = frames.to(device)
                 data = data.to(device)
 
                 output = model(data)
-                # print(data.shape)
-                # print(output.shape)
-                # print(labels.shape)
-                # print(labels)
-                #output.to(device)
         
                 optim.zero_grad()
                 
@@ -468,4 +462,6 @@ with open(file_name, 'w') as w:
     w.write(str(t_all))
 
 writer.close()
-logger.info("TRAINING COMPLETED!!!")
+
+time_taken = str(timedelta(seconds=time.time()-begin_time)).split('.')[0]
+logger.info(f"TRAINING COMPLETED!, Training took {time_taken} hours")

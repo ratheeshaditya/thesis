@@ -136,21 +136,46 @@ If the patience is exceeded or the final epoch is done, the training is stopped.
 
 ### `transformer.py`
 
+# RESULTS
+| **Dataset** |  **Model** | **Accuracy** |
+|:-----------:|:----------:|:------------:|
+|    NTU_2D   | temporal_1 |    0.4052    |
+|    NTU_2D   | temporal_2 |    Running   |
+|    NTU_2D   | temporal_3 |    Running   |
+|    NTU_2D   | temporal_4 |              |
+|    NTU_2D   |     ST     |              |
+|    NTU_2D   |     BP     |              |
+|    NTU_3D   | temporal_1 |    0.4594    |
+|    NTU_3D   | temporal_2 |              |
+|    NTU_3D   | temporal_3 |              |
+|    NTU_3D   | temporal_4 |              |
+|    NTU_3D   |     ST     |              |
+|    NTU_3D   |     BP     |              |
+
+## PROGRESS
+
+### 27th October 2022
+* Ran NTU_2D on temporal_1/temporal_2/temporal_3
+* Ran NTU_3D on temporal_1/
+* Implemented Tensorboard for better visualization
+* Implemented MLflow for better logging
+* Revamped folder structures
+* Used YAML configuration files instead of cmdline arguments
+* Uses classes for the Trajectory dataset instead of plain lists
+* Implemented git version control
+* Added logging feature instead of just printing
+* Cleaned the code
+
 ## TODO
 
 
-NTU120 2D and 3D on the existing models
+* NTU120 2D and 3D on the existing models
+* ViTPose on NTU120
+* ViTPose on HR-Crime
+* Tubelet
+* Global, local decomposition
+* ResNet
 
-Move saved data to dataset storage
 
-HR-Crime on the existing models (done by Kayleigh)
 
-ViTPose on NTU120
 
-ViTPose on HR-Crime
-
-Tubelet
-
-Global, local
-
-ResNet

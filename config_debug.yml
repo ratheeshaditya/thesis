@@ -1,5 +1,5 @@
 META:
-  NAME : person_id_1        #folder name to store trained model and results
+  NAME : log_err_flush        #folder name to store trained model and results
 
 MODEL:
   MODEL_TYPE : temporal_2   #type of model to train, temporal, temporal_2, temporal_3, temporal_4, spatial-temporal or parts

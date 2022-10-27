@@ -1,18 +1,18 @@
 META:
-  NAME : yaml_test_6        #folder name to store trained model and results
+  NAME : temporal_1        #folder name to store trained model and results
 
 MODEL:
-  MODEL_TYPE : temporal_2   #type of model to train, temporal, temporal_2, temporal_3, temporal_4, spatial-temporal or parts
-  EMBED_DIM : 32           #embedding dimension used by the model
+  MODEL_TYPE : temporal   #type of model to train, temporal, temporal_2, temporal_3, temporal_4, spatial-temporal or parts
+  EMBED_DIM : 128           #embedding dimension used by the model
   SEGMENT_LEN : 12          #length of sliding window
-  DEBUG : TRUE              #load subset of trajectories in debug mode
-  DATASET : NTU_2D          #dataset used HR-Crime/UTK/NTU_2D/NTU_3D
+  DEBUG : FALSE              #load subset of trajectories in debug mode
+  DATASET : NTU_3D          #dataset used HR-Crime/UTK/NTU_2D/NTU_3D
 
 
 TRAINING:
-  EPOCHS : 2              #maximum number of epochs during training
+  EPOCHS : 100              #maximum number of epochs during training
   BATCH_SIZE : 2000         #batch size for training
-  PATIENCE : 12             #patience before early stopping is enabled
+  PATIENCE : 10             #patience before early stopping is enabled
   LR : 0.001                #starting learning rate for adaptive learning
   LR_PATIENCE : 3           #patience before learning rate is decreased
   KFOLD: 2                  #number of folds used for cross-validation

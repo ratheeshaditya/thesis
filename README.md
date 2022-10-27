@@ -138,10 +138,6 @@ If the patience is exceeded or the final epoch is done, the training is stopped.
 
 ## TODO
 
-TensorBoard
-MLflow
-
-DataParallel
 
 NTU120 2D and 3D on the existing models
 

@@ -194,7 +194,6 @@ def train_model(embed_dim, epochs):
     train = TrajectoryDataset(*extract_fixed_sized_segments(dataset, train_crime_trajectories, input_length=segment_length))
     test = TrajectoryDataset(*extract_fixed_sized_segments(dataset, test_crime_trajectories, input_length=segment_length))
 
-            # Start print
     logger.info('--------------------------------')
 
     logger.info('No. of trajectories to train: %s', len(train_crime_trajectories))
@@ -246,6 +245,7 @@ def train_model(embed_dim, epochs):
         
         # Define optimizer
         optim = torch.optim.Adam(model.parameters(), lr=cfg['TRAINING']['LR'], betas=(0.9, 0.98), eps=1e-9)
+        cross_entropy_loss = nn.CrossEntropyLoss()
         
         '''
         Define scheduler for adaptive learning
@@ -285,8 +285,6 @@ def train_model(embed_dim, epochs):
                 output = model(data)
         
                 optim.zero_grad()
-                
-                cross_entropy_loss = nn.CrossEntropyLoss()
                     
                 loss = cross_entropy_loss(output, labels)
                 loss.backward()

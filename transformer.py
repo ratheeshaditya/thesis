@@ -661,6 +661,7 @@ class TemporalTransformer_4(nn.Module):
         print('num_joints', num_joints)
         print('num_parts', num_parts)
 
+        self.num_joints = num_joints
         ### patch embedding
         self.embedding = nn.Linear(num_frames, embed_dim)
 
@@ -755,7 +756,7 @@ class TemporalTransformer_4(nn.Module):
     
     def forward(self, x):
         
-        x = get_average_body_parts(x)
+        x = get_average_body_parts(self.num_joints, x)
         #print('x[0]', x[0])
 
         #print('x.shape', x.shape)

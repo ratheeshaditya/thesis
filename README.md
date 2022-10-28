@@ -137,24 +137,37 @@ If the patience is exceeded or the final epoch is done, the training is stopped.
 ### `transformer.py`
 
 # RESULTS
-| **Dataset** |  **Model** | **Accuracy** |
-|:-----------:|:----------:|:------------:|
-|    NTU_2D   | temporal_1 |    0.4052    |
-|    NTU_2D   | temporal_2 |    Running   |
-|    NTU_2D   | temporal_3 |    Running   |
-|    NTU_2D   | temporal_4 |              |
-|    NTU_2D   |     ST     |              |
-|    NTU_2D   |     BP     |              |
-|    NTU_3D   | temporal_1 |    0.4594    |
-|    NTU_3D   | temporal_2 |              |
-|    NTU_3D   | temporal_3 |              |
-|    NTU_3D   | temporal_4 |              |
-|    NTU_3D   |     ST     |              |
-|    NTU_3D   |     BP     |              |
+
+|  **Model** | **c** | **f** | **BA** |
+|:----------:|:-----:|:-----:|:------:|
+| temporal_1 |  256  |   24  |  0.476 |
+| temporal_2 |  128  |   12  | 0.4325 |
+| temporal_3 |  256  |   12  | 0.4071 |
+| temporal_4 |  128  |   12  | 0.3887 |
+|     ST     |   32  |   60  | 0.4926 |
+|    SBPT    |   16  |   60  | 0.4876 |
+
+| **Dataset** |  **Model** | **c** | **f** | **Accuracy** |
+|:-----------:|:----------:|:-----:|:-----:|:------------:|
+|    NTU_2D   | temporal_1 |  128  |   12  |    0.4052    |
+|    NTU_2D   | temporal_1 |  256  |   24  |              |
+|    NTU_2D   | temporal_2 |  128  |   12  |    0.4860    |
+|    NTU_2D   | temporal_3 |  128  |   12  |    0.2570    |
+|    NTU_2D   | temporal_3 |  256  |   12  |              |
+|    NTU_2D   | temporal_4 |  128  |   12  |    Running   |
+|    NTU_2D   |     ST     |   32  |   60  |              |
+|    NTU_2D   |    SBPT    |   16  |   60  |              |
+|    NTU_3D   | temporal_1 |  128  |   12  |    0.4594    |
+|    NTU_3D   | temporal_2 |  128  |  12   |              |
+|    NTU_3D   | temporal_3 |  256  |       |              |
+|    NTU_3D   | temporal_4 |       |       |              |
+|    NTU_3D   |     ST     |   32  |   60  |              |
+|    NTU_3D   |    SBPT    |   16  |   60  |              |
 
 ## PROGRESS
 
-### 27th October 2022
+### 28th October 2022
+* RT Report Work    
 * Ran NTU_2D on temporal_1/temporal_2/temporal_3
 * Ran NTU_3D on temporal_1/
 * Implemented Tensorboard for better visualization
@@ -166,12 +179,22 @@ If the patience is exceeded or the final epoch is done, the training is stopped.
 * Added logging feature instead of just printing
 * Cleaned the code
 
+#### Doubts
+* All models/ only ST (best performing Kayleigh)?
+* Cross Validation necessary? Can I avoid?
+* After getting ViTPose output, use that alone? or NTU default keypoints also? Or the best among them?
+* FP registration delay
+
+
 ## TODO
 
+* Remove short trajectories? (ensure if it's atleast segment length)
+* Saving the best model? torch.save vs torch.state_dict
+    * Save inside current_loss << min_loss
+* train_loss vs val_loss
+* Balanced accuracy on folds?
 
 * NTU120 2D and 3D on the existing models
-* ViTPose on NTU120
-* ViTPose on HR-Crime
 * Tubelet
 * Global, local decomposition
 * ResNet

@@ -291,22 +291,21 @@ def train_model(embed_dim, epochs):
                 optim.step()
 
                 train_loss += loss.item() * labels.size(0)
-                writer.add_scalar("Fold_"+str(fold)+'_Batch_loss', loss, iter)
+                writer.add_scalar("Fold_"+str(fold)+'/Batch_loss', loss, iter)
                     
 
 
-            # Evaluate model on validation set
+            # At the end of every epoch, evaluate model on validation set
             the_current_loss, all_outputs, all_labels, all_videos, all_persons = evaluation(model, val_dataloader)
             all_log_likelihoods = F.log_softmax(all_outputs, dim=1) #nn.CrossEntropyLoss also uses the log_softmax
-            # the class with the highest log-likelihood is what we choose as prediction
             _, all_predictions = torch.max(all_log_likelihoods, dim=1)          
             total = all_labels.size(0)
             correct = (all_predictions == all_labels).sum().item()
             curr_lr = optim.param_groups[0]['lr']
 
-            writer.add_scalar("Fold_"+str(fold)+"Training loss", train_loss/len(train_dataloader), epoch)
-            writer.add_scalar("Fold_"+str(fold)+"Validation loss", the_current_loss, epoch)
-            writer.add_scalar("Fold_"+str(fold)+"Validation Accuracy", correct / total, epoch)
+            writer.add_scalar("Fold_"+str(fold)+"/Training loss", train_loss/len(train_dataloader), epoch)
+            writer.add_scalar("Fold_"+str(fold)+"/Validation loss", the_current_loss, epoch)
+            writer.add_scalar("Fold_"+str(fold)+"/Validation Accuracy", correct / total, epoch)
 
             #print epoch performance
             logger.info(f'Fold {fold}, \

@@ -1,8 +1,8 @@
 META:
-  NAME : log_err_flush        #folder name to store trained model and results
+  NAME : loss_check_10        #folder name to store trained model and results
 
 MODEL:
-  MODEL_TYPE : temporal_2   #type of model to train, temporal, temporal_2, temporal_3, temporal_4, spatial-temporal or parts
+  MODEL_TYPE : temporal   #type of model to train, temporal, temporal_2, temporal_3, temporal_4, spatial-temporal or parts
   EMBED_DIM : 32           #embedding dimension used by the model
   SEGMENT_LEN : 12          #length of sliding window
   DEBUG : TRUE              #load subset of trajectories in debug mode
@@ -10,9 +10,9 @@ MODEL:
 
 
 TRAINING:
-  EPOCHS : 2              #maximum number of epochs during training
-  BATCH_SIZE : 2000         #batch size for training
-  PATIENCE : 12             #patience before early stopping is enabled
+  EPOCHS : 5              #maximum number of epochs during training
+  BATCH_SIZE : 5000         #batch size for training
+  PATIENCE : 3             #patience before early stopping is enabled
   LR : 0.001                #starting learning rate for adaptive learning
   LR_PATIENCE : 3           #patience before learning rate is decreased
   KFOLD: 2                  #number of folds used for cross-validation

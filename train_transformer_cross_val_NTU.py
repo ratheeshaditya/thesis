@@ -27,7 +27,7 @@ import argparse
 
 from trajectory import Trajectory, TrajectoryDataset, extract_fixed_sized_segments, split_into_train_and_test, remove_short_trajectories, get_categories, get_UTK_categories, get_NTU_categories
 from transformer import TemporalTransformer_4, TemporalTransformer_3, TemporalTransformer_2, BodyPartTransformer, SpatialTemporalTransformer, TemporalTransformer, Block, Attention, Mlp
-from utils import print_statistics, SetupLogger, evaluate_all, evaluate_category, conv_to_float, SetupFolders
+from utils import print_statistics, SetupLogger, evaluate_all, evaluate_category, conv_to_float, SetupFolders, train_acc
 
 # logger.info("Reading args")
 
@@ -271,6 +271,9 @@ def train_model(embed_dim, epochs):
             
             model.train()
 
+            train_outputs = torch.tensor([]).to(device)
+            train_labels = torch.LongTensor([]).to(device)
+
             # logger.info("Enumerating Train loader")
         
             for iter, batch in enumerate(train_dataloader, 1):
@@ -290,10 +293,12 @@ def train_model(embed_dim, epochs):
                 loss.backward()
                 optim.step()
 
-                train_loss += loss.item() * labels.size(0)
-                writer.add_scalar("Fold_"+str(fold)+'/Batch_loss', loss, iter)
-                    
-
+                train_loss += loss.item() * labels.size(0) # Multiplied by size since CEloss returns loss.item as loss per sample
+                
+                train_outputs = torch.cat((train_outputs, output), 0)
+                train_labels = torch.cat((train_labels, labels), 0)
+ 
+                # writer.add_scalar("Fold_"+str(fold)+'/Batch_loss', loss.item(), epoch*len(train_dataloader)+iter+1)
 
             # At the end of every epoch, evaluate model on validation set
             the_current_loss, all_outputs, all_labels, all_videos, all_persons = evaluation(model, val_dataloader)
@@ -303,9 +308,10 @@ def train_model(embed_dim, epochs):
             correct = (all_predictions == all_labels).sum().item()
             curr_lr = optim.param_groups[0]['lr']
 
-            writer.add_scalar("Fold_"+str(fold)+"/Training loss", train_loss/len(train_dataloader), epoch)
-            writer.add_scalar("Fold_"+str(fold)+"/Validation loss", the_current_loss, epoch)
-            writer.add_scalar("Fold_"+str(fold)+"/Validation Accuracy", correct / total, epoch)
+            writer.add_scalars("Fold_"+str(fold)+"/Loss", {"Training": train_loss/len(train_dataloader),"Validation": the_current_loss}, epoch)
+            # writer.add_scalar("Fold_"+str(fold)+"/Validation loss", the_current_loss, epoch)
+            writer.add_scalars("Fold_"+str(fold)+"/Accuracy", {"Training": train_acc(train_outputs, train_labels), "Validation": correct / total}, epoch)
+            # writer.add_scalar("Fold_"+str(fold)+"/Training Accuracy", train_acc(train_outputs, train_labels), epoch)
 
             #print epoch performance
             logger.info(f'Fold {fold}, \
@@ -334,7 +340,7 @@ def train_model(embed_dim, epochs):
                 #Save trained model
                 torch.save(model, PATH)
                 
-                logger.info("Least loss so far! Trained model saved to {}".format(PATH))
+                logger.info("Least validation loss so far! Trained model saved to {}".format(PATH))
             else:
                 trigger_times += 1
                 logger.info('trigger times: %d', trigger_times)
@@ -417,7 +423,7 @@ def evaluation(model, data_loader):
 
             cross_entropy_loss = nn.CrossEntropyLoss()
             loss = cross_entropy_loss(outputs, labels)  
-            loss_total += loss.item()
+            loss_total += loss.item() * labels.size(0)
             
             all_outputs = torch.cat((all_outputs, outputs), 0)
             all_labels = torch.cat((all_labels, labels), 0)

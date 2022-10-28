@@ -4,6 +4,8 @@ import logging
 import sys
 import os
 import numpy as np
+import torch
+import torch.nn.functional as F
 
 def SetupFolders(training_name, dataset):
   base_folder = os.path.join('/home/s2435462/HRC/results', dataset, training_name)
@@ -113,3 +115,10 @@ def evaluate_category(df, category, t):
 
 def conv_to_float(x):
   return [float(y) for y in x[1:-1].split(',')]
+
+def train_acc(outputs, labels):
+  all_log_likelihoods = F.log_softmax(outputs, dim=1) #nn.CrossEntropyLoss also uses the log_softmax
+  _, all_predictions = torch.max(all_log_likelihoods, dim=1)          
+  total = labels.size(0)
+  correct = (all_predictions == labels).sum().item()
+  return correct/total

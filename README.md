@@ -188,10 +188,13 @@ If the patience is exceeded or the final epoch is done, the training is stopped.
 
 ## TODO
 
-* Remove short trajectories? (ensure if it's atleast segment length)
-* Saving the best model? torch.save vs torch.state_dict
-    * Save inside current_loss << min_loss
+* ~~Remove short trajectories? (ensure if it's atleast segment length)~~
+* ~~Saving the best model? torch.save vs torch.state_dict~~
+    * ~~Save inside current_loss << min_loss~~
 * train_loss vs val_loss
+    * loss vs loss.item()
+    * running_loss?
+    * Training accuracy
 * Balanced accuracy on folds?
 
 * NTU120 2D and 3D on the existing models

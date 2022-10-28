@@ -327,6 +327,14 @@ def train_model(embed_dim, epochs):
                 logger.info('Loss decreased, trigger times: 0')
                 trigger_times = 0
                 min_loss = the_current_loss
+
+                #Save trained model
+                PATH = os.path.join(model_dir,  model_name + "_fold_" + str(fold) + ".pt")
+                    
+                #Save trained model
+                torch.save(model, PATH)
+                
+                logger.info("Least loss so far! Trained model saved to {}".format(PATH))
             else:
                 trigger_times += 1
                 logger.info('trigger times: %d', trigger_times)
@@ -335,14 +343,6 @@ def train_model(embed_dim, epochs):
                 logger.info('\nStopping after epoch %d', epoch)
                 
                 temp = time.time()
-                
-                #Save trained model
-                PATH = os.path.join(model_dir,  model_name + "_fold_" + str(fold) + ".pt")
-                    
-                #Save trained model
-                torch.save(model, PATH)
-                
-                logger.info("Trained model saved to {}".format(PATH))
 
                 # Evaluate model on test set after training
                 test_dataloader = torch.utils.data.DataLoader(test, batch_size=batch_size, shuffle=True)

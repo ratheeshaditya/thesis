@@ -282,9 +282,9 @@ def train_model(embed_dim, epochs):
                 frames = frames.to(device)
                 data = data.to(device)
 
-                output = model(data)
-        
                 optim.zero_grad()
+
+                output = model(data)
                     
                 loss = cross_entropy_loss(output, labels)
                 loss.backward()

@@ -73,7 +73,7 @@ logger.info('parser args: %s', str(args))
 logger.info('CUDA available: %s', str(torch.cuda.is_available()))
 device = "cuda:0" if torch.cuda.is_available() else "cpu"
 logger.info('Available devices: %s', torch.cuda.device_count())
-logger.info('Current cuda device: %s ', str(torch.cuda.current_device()))
+# logger.info('Current cuda device: %s ', str(torch.cuda.current_device()))
 
 writer = SummaryWriter(log_dir=log_dir)
 
@@ -301,7 +301,9 @@ def train_model(embed_dim, epochs):
  
                 # writer.add_scalar("Fold_"+str(fold)+'/Batch_loss', loss.item(), epoch*len(train_dataloader)+iter+1)
 
-            # At the end of every epoch, evaluate model on validation set
+            '''
+            At the end of every epoch, do validation testing
+            '''
             the_current_loss, all_outputs, all_labels, all_videos, all_persons = evaluation(model, val_dataloader)
             all_log_likelihoods = F.log_softmax(all_outputs, dim=1) #nn.CrossEntropyLoss also uses the log_softmax
             _, all_predictions = torch.max(all_log_likelihoods, dim=1)          
@@ -347,6 +349,9 @@ def train_model(embed_dim, epochs):
                 logger.info('trigger times: %d', trigger_times)
     
             if trigger_times > patience or epoch==epochs:
+                '''
+                If patience exceeded, or final epoch reached, stop training
+                '''
                 logger.info('\nStopping after epoch %d', epoch)
                 
                 temp = time.time()
@@ -366,7 +371,6 @@ def train_model(embed_dim, epochs):
                     
                 # collect the correct predictions for each class
                 for label, video, person, prediction, log_likelihoods, logits in zip(all_labels, all_videos, all_persons, all_predictions, all_log_likelihoods, all_outputs):
-                    
                     with open(file_name_test, 'a') as csv_file_test:
                         csv_writer_test = csv.writer(csv_file_test, delimiter=';')
                         csv_writer_test.writerow([fold, label.item(),  video, person, prediction.item(), log_likelihoods.tolist(), logits.tolist()])
@@ -400,7 +404,9 @@ def train_model(embed_dim, epochs):
 
 
 def evaluation(model, data_loader):
-    # Settings
+    '''
+    Function to evaluate any dataset (Validation and Test)
+    '''
     model.eval()
     loss_total = 0
     
@@ -437,6 +443,12 @@ def evaluation(model, data_loader):
 #train model
 train_model(embed_dim=cfg['MODEL']['EMBED_DIM'], epochs=cfg['TRAINING']['EPOCHS'])
 
+
+
+'''
+Read test set results and print average accuracy metrics of all folds of CV
+'''
+
 logger.info('before read_csv')
 df_results = pd.read_csv(file_name_test, delimiter=';')
 logger.info('after read_csv')
@@ -444,12 +456,11 @@ logger.info('after read_csv')
 
 headers = ['FOLD', 'CATEGORY','ACCURACY(M)','ACCURACY(W)','PRECISION(W)','RECALL(W)','F1-SCORE(W)', 'TOP_3_ACC', 'TOP_5_ACC']
 
-# Evaluate model performance on all crime categories
+# Evaluate model performance on all categories
 t_all = PrettyTable(headers)
 results, t_all = evaluate_all(df_results, 'ALL', t_all)
 logger.info('\n' + str(t_all))
 
-# with start_run(run_name=args.filename):
 log_metric("accuracy", results['acc'])
 log_metric("balanced_accuracy", results['bal_acc'])
 log_metric("weighted_recall", results['weighted_R'])

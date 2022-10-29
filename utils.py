@@ -66,41 +66,56 @@ def print_statistics(train_crime_trajectories, test_crime_trajectories, logger):
     logger.info('TRAIN smaller_than_mean: %d', smaller_than_mean(train_frame_lengths, mean(train_frame_lengths)))
     logger.info('TEST smaller_than_mean: %d', smaller_than_mean(test_frame_lengths, mean(test_frame_lengths)))
 
-def evaluate_all(df, category, t):
-  fold = df['fold']
-  y_true = np.array(df['label'])
-  y_pred = df['prediction']
-  # y_score = np.array(df_results['log_likelihoods'].values.tolist())
-  y_score = df['log_likelihoods'].apply(conv_to_float).values.tolist()
-  # y_score = np.array(df_results['log_likelihoods'].str.strip('[]').str.split().tolist(), dtype='float')
-  
-  # print(type(y_score))
-  # print(y_score[:5])
-  # print(type(y_true))
+def evaluate_all(df_results, category, t):
+  total_results = {}
+  for i in df_results['fold'].unique():
+    df = df_results.loc[df_results['fold'] == i]
+    y_true = np.array(df['label'])
+    y_pred = df['prediction']
+    y_score = df['log_likelihoods'].apply(conv_to_float).values.tolist()
 
-  # print(len(y_score[0]))
+    accuracy = accuracy_score(y_true, y_pred, normalize=True)
+    balanced_accuracy = balanced_accuracy_score(y_true, y_pred)
+    weighted_recall = recall_score(y_true, y_pred, average='weighted')
+    weighted_precision = precision_score(y_true, y_pred, average='weighted')
+    weighted_f1 = f1_score(y_true, y_pred, average='weighted')
+    top_3_accuracy = top_k_accuracy_score(y_true, y_score, k=3, labels=np.arange(120))
+    top_5_accuracy = top_k_accuracy_score(y_true, y_score, k=5, labels=np.arange(120))
 
-  accuracy = accuracy_score(y_true, y_pred, normalize=True)
-  balanced_accuracy = balanced_accuracy_score(y_true, y_pred)
-  weighted_recall = recall_score(y_true, y_pred, average='weighted')
-  weighted_precision = precision_score(y_true, y_pred, average='weighted')
-  weighted_f1 = f1_score(y_true, y_pred, average='weighted')
-  top_3_accuracy = top_k_accuracy_score(y_true, y_score, k=3, labels=np.arange(120))
-  top_5_accuracy = top_k_accuracy_score(y_true, y_score, k=5, labels=np.arange(120))
+    results = {}
+    results['acc'] = accuracy
+    results['bal_acc'] = balanced_accuracy
+    results['weighted_R'] = weighted_recall
+    results['weighted_P'] = weighted_precision
+    results['weighted_f1'] = weighted_f1
+    results['top_3_acc'] = top_3_accuracy
+    results['top_5_acc'] = top_5_accuracy
 
-  results = {}
-  results['acc'] = accuracy
-  results['bal_acc'] = balanced_accuracy
-  results['weighted_R'] = weighted_recall
-  results['weighted_P'] = weighted_precision
-  results['weighted_f1'] = weighted_f1
-  results['top_3_acc'] = top_3_accuracy
-  results['top_5_acc'] = top_5_accuracy
+    total_results['fold_'+str(i)] = results
 
-  evaluations = [category, '%.4f' % accuracy, '%.4f' % balanced_accuracy, '%.4f' % weighted_precision, '%.4f' % weighted_recall, '%.4f' % weighted_f1, '%.4f' % top_3_accuracy, '%.4f' % top_5_accuracy]
+    evaluations = [i, category, '%.4f' % accuracy, '%.4f' % balanced_accuracy, '%.4f' % weighted_precision, '%.4f' % weighted_recall, '%.4f' % weighted_f1, '%.4f' % top_3_accuracy, '%.4f' % top_5_accuracy]
+    t.add_row(evaluations)
 
-  t.add_row(evaluations)
-  return results, t
+  avg = {}
+  avg['acc'] = 0
+  avg['bal_acc'] = 0
+  avg['weighted_R'] = 0
+  avg['weighted_P'] = 0
+  avg['weighted_f1'] = 0
+  avg['top_3_acc'] = 0
+  avg['top_5_acc'] = 0
+
+  for result in total_results.values():
+      for key, value in result.items():
+          avg[key] += result[key]
+
+  for key, value in avg.items():
+      avg[key] = avg[key]/len(total_results)  
+
+  average = ['AVG', category,  '%.4f' % avg['acc'], '%.4f' % avg['bal_acc'], '%.4f' % avg['weighted_P'], '%.4f' % avg['weighted_R'], '%.4f' % avg['weighted_f1'], '%.4f' % avg['top_3_acc'], '%.4f' % avg['top_5_acc']]
+  t.add_row(average)
+
+  return avg, t
  
 def evaluate_category(df, category, t):
   y_true = df['label']

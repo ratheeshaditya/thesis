@@ -195,7 +195,7 @@ If the patience is exceeded or the final epoch is done, the training is stopped.
     * loss vs loss.item()
     * running_loss?
     * Training accuracy
-* Balanced accuracy on folds?
+* ~~Balanced accuracy on folds?~~
 
 * NTU120 2D and 3D on the existing models
 * Tubelet

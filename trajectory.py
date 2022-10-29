@@ -61,8 +61,8 @@ class TrajectoryDataset(Dataset):
         data['categories'] = self.categories[idx]
         data['coordinates'] = self.coordinates[idx]
 
-        # return data
-        return self.ids[idx], self.videos[idx], self.persons[idx], self.frames[idx],self.coordinates[idx], self.categories[idx]
+        return data
+        # return self.ids[idx], self.videos[idx], self.persons[idx], self.frames[idx],self.coordinates[idx], self.categories[idx]
 
     def trajectory_ids(self):
         return self.ids

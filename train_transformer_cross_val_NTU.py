@@ -195,6 +195,22 @@ def train_model(embed_dim, epochs):
     train = TrajectoryDataset(*extract_fixed_sized_segments(dataset, train_crime_trajectories, input_length=segment_length))
     test = TrajectoryDataset(*extract_fixed_sized_segments(dataset, test_crime_trajectories, input_length=segment_length))
 
+    def collator_for_lists(batch):
+        '''
+        Reference : https://stackoverflow.com/questions/64883998/pytorch-dataloader-shows-odd-behavior-with-string-dataset
+        Reference : https://stackoverflow.com/questions/52818145/why-pytorch-dataloader-behaves-differently-on-numpy-array-and-list
+        '''
+        # assert all('sentences' in x for x in batch)
+        # assert all('label' in x for x in batch)
+        return {
+            'id': [x['id'] for x in batch],
+            'videos': [x['videos'] for x in batch],
+            'persons': [x['persons'] for x in batch],
+            'frames': torch.tensor(np.array([x['frames'] for x in batch])),
+            'categories': torch.tensor(np.array([x['categories'] for x in batch])),
+            'coordinates': torch.tensor(np.array([x['coordinates'] for x in batch]))
+        }
+
     logger.info('--------------------------------')
 
     logger.info('No. of trajectories to train: %s', len(train_crime_trajectories))
@@ -212,8 +228,8 @@ def train_model(embed_dim, epochs):
 
         logger.info("Creating Train and Validation dataloaders.")
 
-        train_dataloader = torch.utils.data.DataLoader(train_subset, batch_size = batch_size, shuffle=True)
-        val_dataloader = torch.utils.data.DataLoader(val_subset, batch_size = batch_size, shuffle=True)
+        train_dataloader = torch.utils.data.DataLoader(train_subset, batch_size = batch_size, shuffle=True, collate_fn=collator_for_lists, num_workers = 16)
+        val_dataloader = torch.utils.data.DataLoader(val_subset, batch_size = batch_size, shuffle=True, collate_fn=collator_for_lists, num_workers = 16)
 
         logger.info("Creating the model.")
         #intialize model
@@ -278,7 +294,7 @@ def train_model(embed_dim, epochs):
             # logger.info("Enumerating Train loader")
         
             for iter, batch in enumerate(train_dataloader, 1):
-                ids, videos, persons, frames, data, categories = batch
+                ids, videos, persons, frames, data, categories = batch['id'], batch['videos'], batch['persons'], batch['frames'], batch['coordinates'], batch['categories']
                 
                 labels = torch.tensor([y[0] for y in categories]).to(device)
                 videos = videos
@@ -357,7 +373,7 @@ def train_model(embed_dim, epochs):
                 temp = time.time()
 
                 # Evaluate model on test set after training
-                test_dataloader = torch.utils.data.DataLoader(test, batch_size=batch_size, shuffle=True)
+                test_dataloader = torch.utils.data.DataLoader(test, batch_size=batch_size, shuffle=True, collate_fn=collator_for_lists, num_workers = 16)
                 _, all_outputs, all_labels, all_videos, all_persons = evaluation(model, test_dataloader)
                 all_log_likelihoods = F.log_softmax(all_outputs, dim=1) #nn.CrossEntropyLoss also uses the log_softmax
                 # the class with the highest log-likelihood is what we choose as prediction
@@ -419,8 +435,7 @@ def evaluation(model, data_loader):
     with torch.no_grad():
         cross_entropy_loss = nn.CrossEntropyLoss()
         for batch in data_loader:
-            ids, videos, persons, frames, data, categories = batch
-            
+            ids, videos, persons, frames, data, categories = batch['id'], batch['videos'], batch['persons'], batch['frames'], batch['coordinates'], batch['categories']
             labels = torch.tensor([y[0] for y in categories]).to(device)
             videos = [y[0] for y in videos]
             persons = [y[0] for y in persons]

@@ -46,6 +46,7 @@ logger = SetupLogger('logger', log_dir)
 logger.info("Logger set up!")
 logger.info("Tensorboard set up!\n\n\n\n")
 logger.info("FOLDER NAME: %s", cfg['META']['NAME'])
+logger.info("\nCONFIGS \n=======\n"+yaml.dump(cfg))
 
 with open(os.path.join(base_folder,'config.yml'), 'w') as config_file:
     yaml.dump(cfg, config_file)
@@ -410,6 +411,7 @@ def evaluation(model, data_loader):
 
     # Test validation data
     with torch.no_grad():
+        cross_entropy_loss = nn.CrossEntropyLoss()
         for batch in data_loader:
             ids, videos, persons, frames, data, categories = batch
             
@@ -421,7 +423,6 @@ def evaluation(model, data_loader):
             
             outputs = model(data)
 
-            cross_entropy_loss = nn.CrossEntropyLoss()
             loss = cross_entropy_loss(outputs, labels)  
             loss_total += loss.item() * labels.size(0)
             
@@ -441,7 +442,7 @@ df_results = pd.read_csv(file_name_test, delimiter=';')
 logger.info('after read_csv')
 
 
-headers = ['CATEGORY','ACCURACY(M)','ACCURACY(W)','PRECISION(W)','RECALL(W)','F1-SCORE(W)', 'TOP_3_ACC', 'TOP_5_ACC']
+headers = ['FOLD', 'CATEGORY','ACCURACY(M)','ACCURACY(W)','PRECISION(W)','RECALL(W)','F1-SCORE(W)', 'TOP_3_ACC', 'TOP_5_ACC']
 
 # Evaluate model performance on all crime categories
 t_all = PrettyTable(headers)

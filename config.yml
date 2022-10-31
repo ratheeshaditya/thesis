@@ -1,18 +1,18 @@
 META:
-  NAME : temporal_1        #folder name to store trained model and results
+  NAME : temporal_2_kayleigh_500
 
 MODEL:
-  MODEL_TYPE : temporal   #type of model to train, temporal, temporal_2, temporal_3, temporal_4, spatial-temporal or parts
+  MODEL_TYPE : temporal_2   #type of model to train, temporal, temporal_2, temporal_3, temporal_4, spatial-temporal or parts
   EMBED_DIM : 128           #embedding dimension used by the model
   SEGMENT_LEN : 12          #length of sliding window
   DEBUG : FALSE              #load subset of trajectories in debug mode
-  DATASET : NTU_3D          #dataset used HR-Crime/UTK/NTU_2D/NTU_3D
+  DATASET : NTU_2D          #dataset used HR-Crime/UTK/NTU_2D/NTU_3D
 
 
 TRAINING:
   EPOCHS : 100              #maximum number of epochs during training
-  BATCH_SIZE : 2000         #batch size for training
-  PATIENCE : 10             #patience before early stopping is enabled
+  BATCH_SIZE : 500         #batch size for training
+  PATIENCE : 3             #patience before early stopping is enabled
   LR : 0.001                #starting learning rate for adaptive learning
   LR_PATIENCE : 3           #patience before learning rate is decreased
-  KFOLD: 2                  #number of folds used for cross-validation
+  KFOLD: 3                  #number of folds used for cross-validation

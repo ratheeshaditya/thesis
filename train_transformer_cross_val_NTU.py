@@ -228,8 +228,8 @@ def train_model(embed_dim, epochs):
 
         logger.info("Creating Train and Validation dataloaders.")
 
-        train_dataloader = torch.utils.data.DataLoader(train_subset, batch_size = batch_size, shuffle=True, collate_fn=collator_for_lists, num_workers = 16)
-        val_dataloader = torch.utils.data.DataLoader(val_subset, batch_size = batch_size, shuffle=True, collate_fn=collator_for_lists, num_workers = 16)
+        train_dataloader = torch.utils.data.DataLoader(train_subset, batch_size = batch_size, shuffle=True, collate_fn=collator_for_lists)
+        val_dataloader = torch.utils.data.DataLoader(val_subset, batch_size = batch_size, shuffle=True, collate_fn=collator_for_lists)
 
         logger.info("Creating the model.")
         #intialize model
@@ -281,35 +281,36 @@ def train_model(embed_dim, epochs):
         temp = start
         
         #print('start looping over epochs at', time.time())
-        
+        best_epoch = -1
         for epoch in range(1, epochs+1):
 
             train_loss = 0.0
-            
+
             model.train()
 
             train_outputs = torch.tensor([]).to(device)
             train_labels = torch.LongTensor([]).to(device)
 
-            # logger.info("Enumerating Train loader")
+            logger.info("Enumerating Train loader")
         
             for iter, batch in enumerate(train_dataloader, 1):
+                logger.info("Batch: %d", iter)
                 ids, videos, persons, frames, data, categories = batch['id'], batch['videos'], batch['persons'], batch['frames'], batch['coordinates'], batch['categories']
                 
                 labels = torch.tensor([y[0] for y in categories]).to(device)
-                videos = videos
-                persons = persons
+                # videos = videos
+                # persons = persons
                 frames = frames.to(device)
                 data = data.to(device)
-
-                optim.zero_grad()
-
+                
+                optim.zero_grad(set_to_none=True)
+                
                 output = model(data)
-                    
+                
                 loss = cross_entropy_loss(output, labels)
                 loss.backward()
                 optim.step()
-
+                
                 train_loss += loss.item() * labels.size(0) # Multiplied by size since CEloss returns loss.item as loss per sample
                 
                 train_outputs = torch.cat((train_outputs, output), 0)
@@ -320,6 +321,7 @@ def train_model(embed_dim, epochs):
             '''
             At the end of every epoch, do validation testing
             '''
+            
             the_current_loss, all_outputs, all_labels, all_videos, all_persons = evaluation(model, val_dataloader)
             all_log_likelihoods = F.log_softmax(all_outputs, dim=1) #nn.CrossEntropyLoss also uses the log_softmax
             _, all_predictions = torch.max(all_log_likelihoods, dim=1)          
@@ -347,11 +349,13 @@ def train_model(embed_dim, epochs):
                 csv_writer_train.writerow([fold, epoch, curr_lr, train_loss/len(train_dataloader), the_current_loss, (correct / total), (time.time() - temp)/60])
             
             # Early stopping
-
+            logger.info("Before early stopping")
             if the_current_loss < min_loss:
                 logger.info('Loss decreased, trigger times: 0')
                 trigger_times = 0
                 min_loss = the_current_loss
+
+                best_epoch = epoch
 
                 #Save trained model
                 PATH = os.path.join(model_dir,  model_name + "_fold_" + str(fold) + ".pt")
@@ -372,9 +376,12 @@ def train_model(embed_dim, epochs):
                 
                 temp = time.time()
 
+                PATH = os.path.join(model_dir,  model_name + "_fold_" + str(fold) + ".pt")
+                best_model = torch.load(PATH)
+
                 # Evaluate model on test set after training
-                test_dataloader = torch.utils.data.DataLoader(test, batch_size=batch_size, shuffle=True, collate_fn=collator_for_lists, num_workers = 16)
-                _, all_outputs, all_labels, all_videos, all_persons = evaluation(model, test_dataloader)
+                test_dataloader = torch.utils.data.DataLoader(test, batch_size=batch_size, shuffle=True, collate_fn=collator_for_lists)
+                _, all_outputs, all_labels, all_videos, all_persons = evaluation(best_model, test_dataloader)
                 all_log_likelihoods = F.log_softmax(all_outputs, dim=1) #nn.CrossEntropyLoss also uses the log_softmax
                 # the class with the highest log-likelihood is what we choose as prediction
                 _, all_predictions = torch.max(all_log_likelihoods, dim=1)

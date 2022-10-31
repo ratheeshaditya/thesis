@@ -1,5 +1,5 @@
 META:
-  NAME : evaluate_all_check_2        #folder name to store trained model and results
+  NAME : best_model_check        #folder name to store trained model and results
 
 MODEL:
   MODEL_TYPE : temporal   #type of model to train, temporal, temporal_2, temporal_3, temporal_4, spatial-temporal or parts
@@ -10,8 +10,8 @@ MODEL:
 
 
 TRAINING:
-  EPOCHS : 2              #maximum number of epochs during training
-  BATCH_SIZE : 5000         #batch size for training
+  EPOCHS : 5              #maximum number of epochs during training
+  BATCH_SIZE : 500         #batch size for training
   PATIENCE : 3             #patience before early stopping is enabled
   LR : 0.001                #starting learning rate for adaptive learning
   LR_PATIENCE : 3           #patience before learning rate is decreased

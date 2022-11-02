@@ -71,7 +71,8 @@ logger.info('Arguments given: %s', ';'.join([str(x) for x in sys.argv]))
 logger.info('parser args: %s', str(args))
 
 logger.info('CUDA available: %s', str(torch.cuda.is_available()))
-device = "cuda:0" if torch.cuda.is_available() else "cpu"
+# device = "cuda:0" if torch.cuda.is_available() else "cpu"
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 logger.info('Available devices: %s', torch.cuda.device_count())
 # logger.info('Current cuda device: %s ', str(torch.cuda.current_device()))
 
@@ -291,10 +292,9 @@ def train_model(embed_dim, epochs):
             train_outputs = torch.tensor([]).to(device)
             train_labels = torch.LongTensor([]).to(device)
 
-            logger.info("Enumerating Train loader")
+            logger.info("Epoch %d Enumerating Train loader..", epoch)
         
             for iter, batch in enumerate(train_dataloader, 1):
-                logger.info("Batch: %d", iter)
                 ids, videos, persons, frames, data, categories = batch['id'], batch['videos'], batch['persons'], batch['frames'], batch['coordinates'], batch['categories']
                 
                 labels = torch.tensor([y[0] for y in categories]).to(device)
@@ -349,7 +349,6 @@ def train_model(embed_dim, epochs):
                 csv_writer_train.writerow([fold, epoch, curr_lr, train_loss/len(train_dataloader), the_current_loss, (correct / total), (time.time() - temp)/60])
             
             # Early stopping
-            logger.info("Before early stopping")
             if the_current_loss < min_loss:
                 logger.info('Loss decreased, trigger times: 0')
                 trigger_times = 0

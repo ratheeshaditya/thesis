@@ -203,5 +203,8 @@ If the patience is exceeded or the final epoch is done, the training is stopped.
 * ResNet
 
 
-
-
+c 32 
+c 16 7.5 minutes
+c 8  5.9 minutes
+c 4  5.0 minutes
+c 2                 183510

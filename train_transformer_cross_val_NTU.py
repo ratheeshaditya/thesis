@@ -192,9 +192,27 @@ def train_model(embed_dim, epochs):
     Load segments from the trajectories and create Dataset from them
     '''
 
-    logger.info("Creating Trajectory Train and Test datasets")
-    train = TrajectoryDataset(*extract_fixed_sized_segments(dataset, train_crime_trajectories, input_length=segment_length))
-    test = TrajectoryDataset(*extract_fixed_sized_segments(dataset, test_crime_trajectories, input_length=segment_length))
+    segmented_path_train = '/home/s2435462/HRC/data/segmented_trajectory_train_'+cfg['MODEL']['DATASET']+'_'+str(cfg['MODEL']['SEGMENT_LEN'])+'.pkl'
+    segmented_path_test = '/home/s2435462/HRC/data/segmented_trajectory_test_'+cfg['MODEL']['DATASET']+'_'+str(cfg['MODEL']['SEGMENT_LEN'])+'.pkl'
+
+    if os.path.exists(segmented_path_train):
+        logger.info("Loading segmented Trajectory train dataset")
+        with open(segmented_path_train, 'rb') as fo:
+            train = pickle.load(fo)
+        logger.info("Loading segmented Trajectory test dataset")
+        with open(segmented_path_test, 'rb') as fo:
+            test = pickle.load(fo)
+    else:
+        logger.info("Creating Trajectory Train and Test datasets")
+        train = TrajectoryDataset(*extract_fixed_sized_segments(dataset, train_crime_trajectories, input_length=segment_length))
+        test = TrajectoryDataset(*extract_fixed_sized_segments(dataset, test_crime_trajectories, input_length=segment_length))
+        logger.info("Writing segmented Trajectory train dataset")
+        with open(segmented_path_train, 'wb') as fi:
+            pickle.dump(train, fi)
+        logger.info("Writing segmented Trajectory test dataset")
+        with open(segmented_path_test, 'wb') as fi:
+            pickle.dump(test, fi)
+
 
     def collator_for_lists(batch):
         '''
@@ -235,13 +253,13 @@ def train_model(embed_dim, epochs):
         logger.info("Creating the model.")
         #intialize model
         if cfg['MODEL']['MODEL_TYPE'] == 'temporal':
-                model = TemporalTransformer(embed_dim=embed_dim, num_frames=segment_length, num_classes=num_classes, num_joints=num_joints, in_chans=in_chans, mlp_ratio=2., qkv_bias=True, qk_scale=None, dropout=0.1)
+            model = TemporalTransformer(embed_dim=embed_dim, num_frames=segment_length, num_classes=num_classes, num_joints=num_joints, in_chans=in_chans, mlp_ratio=2., qkv_bias=True, qk_scale=None, dropout=0.1)
         elif cfg['MODEL']['MODEL_TYPE'] == 'temporal_2':
-                model = TemporalTransformer_2(embed_dim=embed_dim, num_frames=segment_length, num_classes=num_classes, num_joints=num_joints, in_chans=in_chans, mlp_ratio=2., qkv_bias=True, qk_scale=None, dropout=0.1)
+            model = TemporalTransformer_2(embed_dim=embed_dim, num_frames=segment_length, num_classes=num_classes, num_joints=num_joints, in_chans=in_chans, mlp_ratio=2., qkv_bias=True, qk_scale=None, dropout=0.1)
         elif cfg['MODEL']['MODEL_TYPE'] == 'temporal_3':
-                model = TemporalTransformer_3(embed_dim=embed_dim, num_frames=segment_length, num_classes=num_classes, num_joints=num_joints, num_parts=num_parts, in_chans=in_chans, mlp_ratio=2., qkv_bias=True, qk_scale=None, dropout=0.1)
+            model = TemporalTransformer_3(embed_dim=embed_dim, num_frames=segment_length, num_classes=num_classes, num_joints=num_joints, num_parts=num_parts, in_chans=in_chans, mlp_ratio=2., qkv_bias=True, qk_scale=None, dropout=0.1)
         elif cfg['MODEL']['MODEL_TYPE'] == 'temporal_4':
-                model = TemporalTransformer_4(embed_dim=embed_dim, num_frames=segment_length, num_classes=num_classes, num_joints=num_joints, num_parts=num_parts, in_chans=in_chans, mlp_ratio=2., qkv_bias=True, qk_scale=None, dropout=0.1)
+            model = TemporalTransformer_4(embed_dim=embed_dim, num_frames=segment_length, num_classes=num_classes, num_joints=num_joints, num_parts=num_parts, in_chans=in_chans, mlp_ratio=2., qkv_bias=True, qk_scale=None, dropout=0.1)
         elif cfg['MODEL']['MODEL_TYPE'] == 'spatial-temporal':
             model = SpatialTemporalTransformer(embed_dim_ratio=embed_dim, num_frames=segment_length, num_classes=num_classes, num_joints=num_joints, in_chans=in_chans, mlp_ratio=2., qkv_bias=True, qk_scale=None, dropout=0.1)
         elif cfg['MODEL']['MODEL_TYPE'] == "parts":
@@ -322,8 +340,8 @@ def train_model(embed_dim, epochs):
             At the end of every epoch, do validation testing
             '''
             
-            the_current_loss, all_outputs, all_labels, all_videos, all_persons = evaluation(model, val_dataloader)
-            all_log_likelihoods = F.log_softmax(all_outputs, dim=1) #nn.CrossEntropyLoss also uses the log_softmax
+            the_current_loss, all_log_likelihoods, all_labels, all_videos, all_persons = evaluation(model, val_dataloader)
+
             _, all_predictions = torch.max(all_log_likelihoods, dim=1)          
             total = all_labels.size(0)
             correct = (all_predictions == all_labels).sum().item()
@@ -380,8 +398,8 @@ def train_model(embed_dim, epochs):
 
                 # Evaluate model on test set after training
                 test_dataloader = torch.utils.data.DataLoader(test, batch_size=batch_size, shuffle=True, collate_fn=collator_for_lists)
-                _, all_outputs, all_labels, all_videos, all_persons = evaluation(best_model, test_dataloader)
-                all_log_likelihoods = F.log_softmax(all_outputs, dim=1) #nn.CrossEntropyLoss also uses the log_softmax
+                _, all_log_likelihoods, all_labels, all_videos, all_persons = evaluation(best_model, test_dataloader)
+
                 # the class with the highest log-likelihood is what we choose as prediction
                 _, all_predictions = torch.max(all_log_likelihoods, dim=1)
                                         
@@ -392,10 +410,10 @@ def train_model(embed_dim, epochs):
 
                     
                 # collect the correct predictions for each class
-                for label, video, person, prediction, log_likelihoods, logits in zip(all_labels, all_videos, all_persons, all_predictions, all_log_likelihoods, all_outputs):
+                for label, video, person, prediction, log_likelihoods, logits in zip(all_labels, all_videos, all_persons, all_predictions, all_log_likelihoods):
                     with open(file_name_test, 'a') as csv_file_test:
                         csv_writer_test = csv.writer(csv_file_test, delimiter=';')
-                        csv_writer_test.writerow([fold, label.item(),  video, person, prediction.item(), log_likelihoods.tolist(), logits.tolist()])
+                        csv_writer_test.writerow([fold, label.item(),  video, person, prediction.item(), logits.tolist()])
                         
                     if label == prediction:
                         correct_pred[all_categories[label]] += 1
@@ -432,7 +450,7 @@ def evaluation(model, data_loader):
     model.eval()
     loss_total = 0
     
-    all_outputs = torch.tensor([]).to(device)
+    all_log_likelihoods = torch.tensor([]).to(device)
     all_labels = torch.LongTensor([]).to(device)
     all_videos = []
     all_persons = []
@@ -453,12 +471,12 @@ def evaluation(model, data_loader):
             loss = cross_entropy_loss(outputs, labels)  
             loss_total += loss.item() * labels.size(0)
             
-            all_outputs = torch.cat((all_outputs, outputs), 0)
+            all_log_likelihoods = torch.cat((all_log_likelihoods, outputs), 0)
             all_labels = torch.cat((all_labels, labels), 0)
             all_videos.extend(videos)
             all_persons.extend(persons)
 
-    return loss_total / len(data_loader), all_outputs, all_labels, all_videos, all_persons
+    return loss_total / len(data_loader), all_log_likelihoods, all_labels, all_videos, all_persons
     
 
 #train model

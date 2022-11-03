@@ -132,8 +132,8 @@ def conv_to_float(x):
   return [float(y) for y in x[1:-1].split(',')]
 
 def train_acc(outputs, labels):
-  all_log_likelihoods = F.log_softmax(outputs, dim=1) #nn.CrossEntropyLoss also uses the log_softmax
-  _, all_predictions = torch.max(all_log_likelihoods, dim=1)          
+  # all_log_likelihoods = F.log_softmax(outputs, dim=1) #nn.CrossEntropyLoss also uses the log_softmax
+  _, all_predictions = torch.max(outputs, dim=1)          
   total = labels.size(0)
   correct = (all_predictions == labels).sum().item()
   return correct/total

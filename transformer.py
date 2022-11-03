@@ -3,6 +3,7 @@
 import torch
 import torch.nn as nn
 from einops import rearrange, repeat
+import torch.nn.functional as F
 
 #Transformer model
 class Mlp(nn.Module):
@@ -190,6 +191,7 @@ class TemporalTransformer(nn.Module):
     def forward(self, x):
         x = self.forward_features(x)
         x = self.head(x)
+        x = F.log_softmax(x, dim=1)
         return x
 
 
@@ -316,6 +318,7 @@ class TemporalTransformer_2(nn.Module):
     def forward(self, x):
         x = self.forward_features(x)
         x = self.head(x)
+        x = F.log_softmax(x, dim=1)
         return x
 
 
@@ -628,6 +631,7 @@ class TemporalTransformer_3(nn.Module):
 
         x = self.forward_features(x)
         x = self.head(x)
+        x = F.log_softmax(x, dim=1)
         return x
 
 
@@ -752,6 +756,7 @@ class TemporalTransformer_4(nn.Module):
 
         cls_token_final = x[:, 0]
         #return self.pre_logits(x[:, 0])
+
         return cls_token_final
     
     def forward(self, x):
@@ -763,6 +768,7 @@ class TemporalTransformer_4(nn.Module):
 
         x = self.forward_features(x)
         x = self.head(x)
+        x = F.log_softmax(x, dim=1)
         return x
         
 
@@ -944,6 +950,7 @@ class SpatialTemporalTransformer(nn.Module):
         x = self.forward_features(x)
         
         x = self.head(x)
+        x = F.log_softmax(x, dim=1)
 
 
         return x
@@ -1285,6 +1292,8 @@ class BodyPartTransformer(nn.Module):
         x = self.forward_features(x)
         
         x = self.head(x)
+
+        x = F.log_softmax(x, dim=1)
 
         #print(f"head(x) size: {x.size()}")
 

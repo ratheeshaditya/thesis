@@ -154,7 +154,7 @@ If the patience is exceeded or the final epoch is done, the training is stopped.
 |    NTU_2D   | temporal_2 |  128  |   12  |    0.4860    |
 |    NTU_2D   | temporal_3 |  128  |   12  |    0.2570    |
 |    NTU_2D   | temporal_3 |  256  |   12  |              |
-|    NTU_2D   | temporal_4 |  128  |   12  |    Running   |
+|    NTU_2D   | temporal_4 |  128  |   12  |    0.3342    |
 |    NTU_2D   |     ST     |   32  |   60  |              |
 |    NTU_2D   |    SBPT    |   16  |   60  |              |
 |    NTU_3D   | temporal_1 |  128  |   12  |    0.4594    |
@@ -208,3 +208,13 @@ c 16 7.5 minutes
 c 8  5.9 minutes
 c 4  5.0 minutes
 c 2                 183510
+
+
+c 2 b 100 killed
+c 2 b 200 running
+
+temporal_1 : /home/s2435462/HRC/results/NTU_2D/temporal_1_c32_b1000/logs/logs.log
+
+temporal_2 : /home/s2435462/HRC/results/NTU_2D/temporal_2_c32_b1000/logs/logs.log
+
+temporal_4 : /home/s2435462/HRC/results/NTU_2D/temporal_4_c32_b1000/logs/logs.log

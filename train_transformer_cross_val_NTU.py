@@ -185,15 +185,15 @@ def train_model(embed_dim, epochs):
     
     with open(file_name_test, 'a') as csv_file_test:
         csv_writer_test = csv.writer(csv_file_test, delimiter=';')
-        csv_writer_test.writerow(['fold', 'label', 'video', 'person', 'prediction', 'log_likelihoods', 'logits'])
+        csv_writer_test.writerow(['fold', 'label', 'video', 'person', 'prediction', 'log_likelihoods'])
     
         
     '''
     Load segments from the trajectories and create Dataset from them
     '''
 
-    segmented_path_train = '/home/s2435462/HRC/data/segmented_trajectory_train_'+cfg['MODEL']['DATASET']+'_'+str(cfg['MODEL']['SEGMENT_LEN'])+'.pkl'
-    segmented_path_test = '/home/s2435462/HRC/data/segmented_trajectory_test_'+cfg['MODEL']['DATASET']+'_'+str(cfg['MODEL']['SEGMENT_LEN'])+'.pkl'
+    segmented_path_train = '/home/s2435462/HRC/data/segmented_trajectory_train_'+cfg['MODEL']['DATASET']+'_'+str(cfg['MODEL']['SEGMENT_LEN'])+'_'+str(cfg['MODEL']['DEBUG'])+'.pkl'
+    segmented_path_test = '/home/s2435462/HRC/data/segmented_trajectory_test_'+cfg['MODEL']['DATASET']+'_'+str(cfg['MODEL']['SEGMENT_LEN'])+'_'+str(cfg['MODEL']['DEBUG'])+'.pkl'
 
     if os.path.exists(segmented_path_train):
         logger.info("Loading segmented Trajectory train dataset")
@@ -410,10 +410,10 @@ def train_model(embed_dim, epochs):
 
                     
                 # collect the correct predictions for each class
-                for label, video, person, prediction, log_likelihoods, logits in zip(all_labels, all_videos, all_persons, all_predictions, all_log_likelihoods):
+                for label, video, person, prediction, log_likelihoods in zip(all_labels, all_videos, all_persons, all_predictions, all_log_likelihoods):
                     with open(file_name_test, 'a') as csv_file_test:
                         csv_writer_test = csv.writer(csv_file_test, delimiter=';')
-                        csv_writer_test.writerow([fold, label.item(),  video, person, prediction.item(), logits.tolist()])
+                        csv_writer_test.writerow([fold, label.item(),  video, person, prediction.item(), log_likelihoods.tolist()])
                         
                     if label == prediction:
                         correct_pred[all_categories[label]] += 1

@@ -6,13 +6,16 @@ import os
 from csv import reader
 import numpy as np
 import pickle
-from trajectory import Trajectory, get_NTU_categories, remove_short_trajectories, split_into_train_and_test
+from trajectory import Trajectory, get_NTU_categories, remove_short_trajectories, split_into_train_and_test, get_categories
 from utils import SetupLogger
 
 logger = SetupLogger('logger')
 
 # dimension = '2D'
 dimension = '3D'
+
+dataset = "HRC"
+# dataset = "NTU"
 
 path = '/home/s2435462/HRC/NTU/skeleton/trajectory_csv_'+dimension       
 
@@ -51,7 +54,11 @@ def load_trajectories(trajectories_path, classes):
   logger.info('count = %d', count_t)
   return trajectories
 
-all_categories = get_NTU_categories()
+if dataset == "NTU":
+  all_categories = get_NTU_categories()
+elif dataset == "HRC":
+  all_categories = get_categories()
+
 logger.info("categories: %s", str(all_categories))
 
 #load trajectories
@@ -59,7 +66,10 @@ trajectories = load_trajectories(path, all_categories)
 logger.info('Loaded %d trajectories.', len(trajectories))
 
 #save trajectories
-PIK = "/home/s2435462/HRC/data/trajectories_NTU_"+dimension+".dat"
+if dataset == "NTU":
+  PIK = "/home/s2435462/HRC/data/trajectories_NTU_"+dimension+".dat"
+elif dataset == "HRC":
+  PIK = "/home/s2435462/HRC/data/trajectories_HRC_"+dimension+".dat"
 
 with open(PIK, "wb") as f:
   pickle.dump(trajectories, f)
@@ -74,8 +84,12 @@ trajectories_train, trajectories_test = split_into_train_and_test(trajectories, 
 logger.info('%d train trajectories and %d test trajectories', len(trajectories_train), len(trajectories_test))
 
 #save trajectories for train and test
-PIK_train = "/home/s2435462/HRC/data/trajectories_train_NTU_"+ dimension +".dat"
-PIK_test = "/home/s2435462/HRC/data/trajectories_test_NTU_"+ dimension +".dat"
+if dataset == "NTU":
+  PIK_train = "/home/s2435462/HRC/data/trajectories_train_NTU_"+ dimension +".dat"
+  PIK_test = "/home/s2435462/HRC/data/trajectories_test_NTU_"+ dimension +".dat"
+elif dataset == "HRC":
+  PIK_train = "/home/s2435462/HRC/data/trajectories_train_HRC_"+ dimension +".dat"
+  PIK_test = "/home/s2435462/HRC/data/trajectories_test_HRC_"+ dimension +".dat"
 
 with open(PIK_train, "wb") as f:
   pickle.dump(trajectories_train, f)

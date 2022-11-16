@@ -983,7 +983,7 @@ class SpatialTemporalTransformer(nn.Module):
 
 
 class BodyPartTransformer(nn.Module):
-    def __init__(self, num_classes=13, num_frames=12, num_joints=17, in_chans=2, embed_dim_ratio=32, depth=4,
+    def __init__(self, dataset=None, num_classes=13, num_frames=12, num_joints=17, in_chans=2, embed_dim_ratio=32, depth=4,
                  num_heads=8, mlp_ratio=2., qkv_bias=True, qk_scale=None,
                  drop_rate=0., attn_drop_rate=0., dropout=0.2):
         """    ##########hybrid_backbone=None, representation_size=None,
@@ -1005,6 +1005,7 @@ class BodyPartTransformer(nn.Module):
         super().__init__()
 
         self.in_chans = in_chans
+        self.dataset = dataset
 
         embed_dim = embed_dim_ratio * num_joints   #### temporal embed_dim is num_joints * spatial embedding dim ratio
 
@@ -1014,8 +1015,16 @@ class BodyPartTransformer(nn.Module):
         ### spatial patch embedding
         self.Spatial_patch_to_embedding = nn.Linear(in_chans, embed_dim_ratio)
         #self.Spatial_pos_embed = nn.Parameter(torch.zeros(num_joints, embed_dim_ratio))
-        self.Torso_pos_embed = nn.Parameter(torch.zeros(9, embed_dim_ratio)) #9 joints
-        self.Other_pos_embed = nn.Parameter(torch.zeros(2, embed_dim_ratio)) #2 joints in remaining body parts
+        if self.dataset == "HRC":
+            self.Torso_pos_embed = nn.Parameter(torch.zeros(9, embed_dim_ratio)) #9 joints
+            self.Other_pos_embed = nn.Parameter(torch.zeros(2, embed_dim_ratio)) #2 joints in remaining body parts
+        elif "NTU" in self.dataset:
+            if "2D" in self.dataset:
+                self.Torso_pos_embed = nn.Parameter(torch.zeros(9, embed_dim_ratio)) #9 joints
+                self.Elbow_Knee_pos_embed = nn.Parameter(torch.zeros(2, embed_dim_ratio)) #2 joints in remaining body parts 
+                self.Wrist_pos_embed = nn.Parameter(torch.zeros(8, embed_dim_ratio)) #2 joints in remaining body parts 
+                self.Ankle_pos_embed = nn.Parameter(torch.zeros(4, embed_dim_ratio)) #2 joints in remaining body parts 
+
 
         self.Temporal_pos_embed = nn.Parameter(torch.zeros(num_frames + 1, embed_dim))
         self.pos_drop = nn.Dropout(p=drop_rate)
@@ -1123,7 +1132,7 @@ class BodyPartTransformer(nn.Module):
         #print('new x.shape', x.shape)
 
         x = self.Spatial_patch_to_embedding(x)
-        x = self.pos_drop(x + self.Other_pos_embed)
+        x = self.pos_drop(x + self.Elbow_Knee_pos_embed)
 
         
         for blk in self.Elbow_blocks:
@@ -1144,7 +1153,7 @@ class BodyPartTransformer(nn.Module):
         #print('new x.shape', x.shape)
 
         x = self.Spatial_patch_to_embedding(x)
-        x = self.pos_drop(x + self.Other_pos_embed)
+        x = self.pos_drop(x + self.Wrist_pos_embed)
 
         for blk in self.Wrist_blocks:
             x = blk(x)
@@ -1164,7 +1173,7 @@ class BodyPartTransformer(nn.Module):
         #print('new x.shape', x.shape)
 
         x = self.Spatial_patch_to_embedding(x)
-        x = self.pos_drop(x + self.Other_pos_embed)
+        x = self.pos_drop(x + self.Elbow_Knee_pos_embed)
 
         for blk in self.Knee_blocks:
             x = blk(x)
@@ -1184,7 +1193,7 @@ class BodyPartTransformer(nn.Module):
         #print('new x.shape', x.shape)
 
         x = self.Spatial_patch_to_embedding(x)
-        x = self.pos_drop(x + self.Other_pos_embed)
+        x = self.pos_drop(x + self.Ankle_pos_embed)
 
         for blk in self.Ankle_blocks:
             x = blk(x)
@@ -1244,13 +1253,46 @@ class BodyPartTransformer(nn.Module):
         ### now x is [batch_size, 2 channels, receptive frames, joint_num], following image data
         #print('x.shape following image data', x.shape)
         #print('x[0,:]', x[0,:])
-        x_torso_1 = x[:, :, 0:7, :] #joints 0,1,2,3,4,5,6 (head and shoulders) 
-        x_torso_2 = x[:, :, 11:13, :] #joints 11,12 (hips)
-        x_torso = torch.cat((x_torso_1, x_torso_2), dim=2)
-        x_elbow = x[:, :, 7:9, :]
-        x_wirst = x[:, :, 9:11, :]
-        x_knee = x[:, :, 13:15, :]
-        x_ankle = x[:, :, 15:17, :]
+        if "HRC" in self.dataset:
+            x_torso_1 = x[:, :, 0:7, :] #joints 0,1,2,3,4,5,6 (head and shoulders) 
+            x_torso_2 = x[:, :, 11:13, :] #joints 11,12 (hips)
+            x_torso = torch.cat((x_torso_1, x_torso_2), dim=2)
+            x_elbow = x[:, :, 7:9, :]
+            x_wirst = x[:, :, 9:11, :]
+            x_knee = x[:, :, 13:15, :]
+            x_ankle = x[:, :, 15:17, :]
+        elif "NTU" in self.dataset:
+            if "2D" in self.dataset:
+                x_torso_1 = x[:, :, 0:5, :]
+                x_torso_2 = x[:, :, 8:9, :]
+                x_torso_3 = x[:, :, 12:13, :]
+                x_torso_4 = x[:, :, 16:17, :]
+                x_torso_5 = x[:, :, 20:21, :]
+
+                x_torso = torch.cat((x_torso_1, x_torso_2, x_torso_3, x_torso_4, x_torso_5), dim=2)
+
+                x_elbow_1 = x[:, :, 9:10, :]
+                x_elbow_2 = x[:, :, 5:6, :]
+
+                x_elbow = torch.cat((x_elbow_1, x_elbow_2), dim=2)
+
+                x_wrist_1 = x[:, :, 7:9, :]
+                x_wrist_2 = x[:, :, 10:12, :]
+                x_wrist_3 = x[:, :, 21:25, :]
+
+                x_wrist = torch.cat((x_wrist_1, x_wrist_2, x_wrist_3), dim=2)
+
+                x_knee_1 = x[:, :, 15:16, :]
+                x_knee_2 = x[:, :, 17:18, :]
+
+                x_knee = torch.cat((x_knee_1, x_knee_2), dim=2)
+
+                x_ankle_1 = x[:, :, 14:16, :]
+                x_ankle_2 = x[:, :, 18:20, :]
+
+                x_ankle = torch.cat((x_ankle_1, x_ankle_2), dim=2)
+
+
         
         '''
         print('x_torso shape', x_torso.shape)
@@ -1269,7 +1311,7 @@ class BodyPartTransformer(nn.Module):
         
         x_torso = self.Torso_forward_features(x_torso)
         x_elbow = self.Elbow_forward_features(x_elbow)
-        x_wirst = self.Wrist_forward_features(x_wirst)
+        x_wrist = self.Wrist_forward_features(x_wrist)
         x_knee = self.Knee_forward_features(x_knee)
         x_ankle = self.Ankle_forward_features(x_ankle)
 
@@ -1284,7 +1326,7 @@ class BodyPartTransformer(nn.Module):
         #print('x_torso[0]', x_torso[0])
         #print('x_elbow[0]', x_elbow[0])
 
-        x = torch.cat((x_torso, x_elbow, x_wirst, x_knee, x_ankle), dim=2)
+        x = torch.cat((x_torso, x_elbow, x_wrist, x_knee, x_ankle), dim=2)
         #print('x[0]', x[0])
 
         #print('x.shape', x.shape)

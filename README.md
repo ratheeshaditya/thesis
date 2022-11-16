@@ -137,6 +137,7 @@ If the patience is exceeded or the final epoch is done, the training is stopped.
 ### `transformer.py`
 
 # RESULTS
+### Kayleigh
 
 |  **Model** | **c** | **f** | **BA** |
 |:----------:|:-----:|:-----:|:------:|
@@ -147,24 +148,29 @@ If the patience is exceeded or the final epoch is done, the training is stopped.
 |     ST     |   32  |   60  | 0.4926 |
 |    SBPT    |   16  |   60  | 0.4876 |
 
-| **Dataset** |  **Model** | **c** | **f** | **Accuracy** |
+### AMJ
+
+| **Dataset** |  **Model** | **c** | **f** | **BA** |
 |:-----------:|:----------:|:-----:|:-----:|:------------:|
-|    NTU_2D   | temporal_1 |  128  |   12  |    0.4052    |
-|    NTU_2D   | temporal_1 |  256  |   24  |              |
-|    NTU_2D   | temporal_2 |  128  |   12  |    0.4860    |
-|    NTU_2D   | temporal_3 |  128  |   12  |    0.2570    |
-|    NTU_2D   | temporal_3 |  256  |   12  |              |
+|    NTU_2D   | temporal_1 |  256  |   24  |    0.4617    |
+|    NTU_2D   | temporal_2 |  128  |   12  |    0.4861    |
+|    NTU_2D   | temporal_3 |  256  |   12  |    0.2465    |
 |    NTU_2D   | temporal_4 |  128  |   12  |    0.3342    |
-|    NTU_2D   |     ST     |   32  |   60  |              |
-|    NTU_2D   |    SBPT    |   16  |   60  |              |
-|    NTU_3D   | temporal_1 |  128  |   12  |    0.4594    |
-|    NTU_3D   | temporal_2 |  128  |  12   |              |
-|    NTU_3D   | temporal_3 |  256  |       |              |
-|    NTU_3D   | temporal_4 |       |       |              |
-|    NTU_3D   |     ST     |   32  |   60  |              |
-|    NTU_3D   |    SBPT    |   16  |   60  |              |
+|    NTU_2D   |     ST     |   32  |   60  |    0.4288    |
+|    NTU_2D   |    SBPT    |   16  |   60  |    0.4886    |
 
 ## PROGRESS
+
+### 9th November 2022
+* Got results for temporal_1, temporal_2, temporal_3 and temporal_4
+* Currently running on ST and SBPT models (had to decrease batch size, 1 hour per epoch)
+* Decomposed keypoints globally and locally (NTU_2D, NTU_3D and HRC)
+
+#### Doubts
+* Should ST and SBPT be trained fully? Or stop after one fold? Since it will take days
+* Architecture for global and local keypoints?
+* Local keypoints are normalized?
+* 'Committee chair' and 'Committee member UT' in the proposal form?
 
 ### 28th October 2022
 * RT Report Work    
@@ -191,10 +197,10 @@ If the patience is exceeded or the final epoch is done, the training is stopped.
 * ~~Remove short trajectories? (ensure if it's atleast segment length)~~
 * ~~Saving the best model? torch.save vs torch.state_dict~~
     * ~~Save inside current_loss << min_loss~~
-* train_loss vs val_loss
-    * loss vs loss.item()
-    * running_loss?
-    * Training accuracy
+* ~~train_loss vs val_loss~~
+    * ~~loss vs loss.item()~~
+    * ~~running_loss?~~
+    * ~~Training accuracy~~
 * ~~Balanced accuracy on folds?~~
 
 * NTU120 2D and 3D on the existing models
@@ -217,4 +223,10 @@ temporal_1 : /home/s2435462/HRC/results/NTU_2D/temporal_1_c32_b1000/logs/logs.lo
 
 temporal_2 : /home/s2435462/HRC/results/NTU_2D/temporal_2_c32_b1000/logs/logs.log
 
+temporal_3 : /home/s2435462/HRC/results/NTU_2D/temporal_3_c32_b1000_2/logs/logs.log
+
 temporal_4 : /home/s2435462/HRC/results/NTU_2D/temporal_4_c32_b1000/logs/logs.log
+
+*spatio-temporal : /home/s2435462/HRC/results/NTU_2D/spatial-temporal_3_c32_b1000_6/logs/logs.log
+
+*parts : /home/s2435462/HRC/results/NTU_2D/parts_3_c32_b100_8/logs/logs.log

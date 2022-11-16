@@ -4,17 +4,23 @@ import pandas as pd
 from csv import reader
 import numpy as np
 import pickle
-from trajectory import Trajectory, get_NTU_categories, remove_short_trajectories, split_into_train_and_test
+from trajectory import Trajectory, get_NTU_categories, get_categories, remove_short_trajectories, split_into_train_and_test
 from utils import SetupLogger
 
-# dimension = '2D'
-dimension = '3D'
+dimension = '2D'
+# dimension = '3D'
 
-log_folder = '/home/s2435462/HRC/results/NTU_'+dimension+'decomposing'
+dataset = "HRC"
+# dataset = "NTU"
+
+log_folder = '/home/s2435462/HRC/results/'+dataset+'_'+dimension+'decomposing'
 os.makedirs(log_folder)
 logger = SetupLogger('logger', log_dir=log_folder)
 
-path = '/home/s2435462/HRC/NTU/skeleton/trajectory_csv_'+dimension       
+if dataset == "NTU":
+    path = '/home/s2435462/HRC/NTU/skeleton/trajectory_csv_'+dimension
+elif dataset == "HRC":
+    path = '/home/s2435462/HRC/dataverse_files/trajectories_all' 
 
 def decompose_trajectories_2D(trajectories_path, decompose_path, classes):
   trajectories = {}
@@ -24,6 +30,11 @@ def decompose_trajectories_2D(trajectories_path, decompose_path, classes):
   for category in categories:
     category_path = os.path.join(trajectories_path, category) # Path for each category
     folder_names = os.listdir(category_path) # List of folders inside the action class directory
+
+    for f in folder_names:
+        if f.startswith('.'):
+            folder_names.remove(f)
+
       
     for folder_name in folder_names: # Loop through person folders inside action class directory
         logger.info('load trajectories for video: %s', folder_name)
@@ -154,13 +165,20 @@ def decompose_trajectories_3D(trajectories_path, decompose_path, classes):
 
   logger.info('count = %d', count_t)
 
-decompose_path = '/home/s2435462/HRC/NTU/skeleton/decompose_trajectory_csv_'+dimension 
-
-all_categories = get_NTU_categories()
+if dataset == "HRC":
+    decompose_path = '/home/s2435462/HRC/dataverse_files/decompose_trajectory_csv_'+dimension
+    all_categories = get_categories()
+elif dataset == "NTU":
+    decompose_path = '/home/s2435462/HRC/NTU/skeleton/decompose_trajectory_csv_'+dimension
+    all_categories = get_NTU_categories()
 
 #decompose trajectories
-if dimension=='2D':
-    decompose_trajectories_2D(path, decompose_path, all_categories)
+if dataset == "NTU":
+    if dimension=='2D':
+        decompose_trajectories_2D(path, decompose_path, all_categories)
 
-if dimension=='3D':
-    decompose_trajectories_3D(path, decompose_path, all_categories)
+    if dimension=='3D':
+        decompose_trajectories_3D(path, decompose_path, all_categories)
+elif dataset == "HRC":
+    if dimension=='2D':
+        decompose_trajectories_2D(path, decompose_path, all_categories)

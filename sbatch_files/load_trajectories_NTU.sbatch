@@ -6,8 +6,8 @@
 #SBATCH --mem=32gb                     # Job memory request
 #SBATCH --mail-type=END,FAIL          # email status changes (NONE, BEGIN, END, FAIL, ALL)
 #SBATCH --mail-user=a.m.joseph@student.utwente.nl   # Where to send mail to
-#SBATCH --output=../../out/log/load_trajectories_NTU_%j.log      # Standard output and error log
-#SBATCH --error=../../out/err/load_trajectories_NTU_%j.err                # if yoou want the errors logged seperately
+#SBATCH --output=../../out/log/new/load_trajectories_NTU_%j.log      # Standard output and error log
+#SBATCH --error=../../out/err/new/load_trajectories_NTU_%j.err                # if yoou want the errors logged seperately
 #SBATCH --partition=main # Here 50..is the partition name..can be checked via sinfo
  
 # Create a directory for this job on the node

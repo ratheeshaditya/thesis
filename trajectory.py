@@ -19,9 +19,9 @@ def get_NTU_categories():
     return NTU_categories    
 
 class Trajectory:
-    def __init__(self, trajectory_id, frames, coordinates, category, dimension):
+    def __init__(self, trajectory_id, frames, coordinates, category, person_id, dimension):
         self.trajectory_id = trajectory_id
-        self.person_id = trajectory_id[8:12] + '_' + trajectory_id.split('_')[1] # Saves the person id in each video
+        self.person_id = person_id
         self.frames = frames
         self.coordinates = coordinates
         #self.is_global = False
@@ -118,8 +118,7 @@ def extract_fixed_sized_segments(dataset, trajectories, input_length):
     Given a dataset of trajectories, divide each of them into segments and return a whole bunch of segments.
     '''
     trajectories_ids, videos, persons, frames, categories, X = [], [], [], [], [], []
-    
-        
+
     for trajectory in trajectories.values():
         traj_id, video_id, person_id, traj_frames, traj_category, traj_X = _extract_fixed_sized_segments(dataset, trajectory, input_length)
         
@@ -129,7 +128,7 @@ def extract_fixed_sized_segments(dataset, trajectories, input_length):
         X.append(traj_X)
         videos.append(video_id)
         persons.append(person_id)
-        
+            
     trajectories_ids, videos, persons, frames, categories, X = np.vstack(trajectories_ids), np.vstack(videos), np.vstack(persons), np.vstack(frames), np.vstack(categories), np.vstack(X)
 
     return trajectories_ids, videos, persons, frames, categories, X
@@ -166,7 +165,7 @@ def _extract_fixed_sized_segments(dataset, trajectory, input_length):
     '''
     traj_frames, traj_X = np.stack(traj_frames, axis=0), np.stack(traj_X, axis=0)
     
-    if dataset == "HR-Crime":
+    if dataset == "HRC":
         numbers_found = re.search(r"(\d+)_(\d+)", trajectory_id)
         video_id = numbers_found.group(1)
         person_id = numbers_found.group(2)

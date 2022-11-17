@@ -66,7 +66,7 @@ def print_statistics(train_crime_trajectories, test_crime_trajectories, logger):
     logger.info('TRAIN smaller_than_mean: %d', smaller_than_mean(train_frame_lengths, mean(train_frame_lengths)))
     logger.info('TEST smaller_than_mean: %d', smaller_than_mean(test_frame_lengths, mean(test_frame_lengths)))
 
-def evaluate_all(df_results, category, t):
+def evaluate_all(df_results, category, t, lab_len):
   total_results = {}
   for i in df_results['fold'].unique():
     df = df_results.loc[df_results['fold'] == i]
@@ -79,8 +79,8 @@ def evaluate_all(df_results, category, t):
     weighted_recall = recall_score(y_true, y_pred, average='weighted')
     weighted_precision = precision_score(y_true, y_pred, average='weighted')
     weighted_f1 = f1_score(y_true, y_pred, average='weighted')
-    top_3_accuracy = top_k_accuracy_score(y_true, y_score, k=3, labels=np.arange(120))
-    top_5_accuracy = top_k_accuracy_score(y_true, y_score, k=5, labels=np.arange(120))
+    top_3_accuracy = top_k_accuracy_score(y_true, y_score, k=3, labels=np.arange(lab_len))
+    top_5_accuracy = top_k_accuracy_score(y_true, y_score, k=5, labels=np.arange(lab_len))
 
     results = {}
     results['acc'] = accuracy

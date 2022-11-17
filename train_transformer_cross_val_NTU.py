@@ -1,6 +1,9 @@
  #!/bin/env python
  
- #import packages
+'''
+import packages
+'''
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -31,7 +34,7 @@ from utils import print_statistics, SetupLogger, evaluate_all, evaluate_category
 
 # logger.info("Reading args")
 
-begin_time = time.time()
+begin_time = time.time() # Log starting time
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--config_file", help="file from which configs need to be loaded", default="config")
@@ -64,6 +67,7 @@ log_param("model_type", cfg['MODEL']['MODEL_TYPE'])
 log_param("segment_length", cfg['MODEL']['SEGMENT_LEN'])
 log_param("dataset", cfg['MODEL']['DATASET'])
 log_param("batch_size", cfg['TRAINING']['BATCH_SIZE'])
+log_param("decomposed", cfg['MODEL']['DECOMPOSED'])
 
 logger.info('Number of arguments given: %s arguments.', str(len(sys.argv)))
 logger.info('Arguments given: %s', ';'.join([str(x) for x in sys.argv]))
@@ -76,30 +80,54 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 logger.info('Available devices: %s', torch.cuda.device_count())
 # logger.info('Current cuda device: %s ', str(torch.cuda.current_device()))
 
-writer = SummaryWriter(log_dir=log_dir)
+writer = SummaryWriter(log_dir=log_dir) # Tensorboard writer
 
 
 # Set dataset
 dataset = cfg['MODEL']['DATASET']
-if dataset=="HR-Crime":
-    PIK_train = "./data/train_anomaly_trajectories.dat"
-    PIK_test = "./data/test_anomaly_trajectories.dat"
+
+if dataset=="HRC":
+    decomposed = "decom_" if cfg['MODEL']['DECOMPOSED'] else ""
+    dimension = "2D"
+
+    PIK_train = "/home/s2435462/HRC/data/"+dataset+"/trajectories_train_HRC_"+decomposed+dimension+".dat"
+    PIK_test = "/home/s2435462/HRC/data/"+dataset+"/trajectories_test_HRC_"+decomposed+dimension+".dat"
+
     all_categories = get_categories()
 elif dataset == "UTK":
     PIK_train = "./data/train_UTK_trajectories.dat"
     PIK_test = "./data/test_UTK_trajectories.dat"
     all_categories = get_UTK_categories()
 elif "NTU" in dataset:
-    if "2D" in dataset:
-        PIK_train = "/home/s2435462/HRC/data/trajectories_train_NTU_2D.dat"
-        PIK_test = "/home/s2435462/HRC/data/trajectories_test_NTU_2D.dat"
-    elif "3D" in dataset:
-        PIK_train = "/home/s2435462/HRC/data/trajectories_train_NTU_3D.dat"
-        PIK_test = "/home/s2435462/HRC/data/trajectories_test_NTU_3D.dat"
+    dimension = dataset.split('_')[-1]
+    decomposed = "decom_" if cfg['MODEL']['DECOMPOSED'] else ""
+
+    PIK_train = "/home/s2435462/HRC/data/"+dataset+"/trajectories_train_NTU_"+decomposed+dimension+".dat"
+    PIK_test = "/home/s2435462/HRC/data/"+dataset+"/trajectories_test_NTU_"+decomposed+dimension+".dat"
+    # if "2D" in dataset:
+    #     if cfg['TRAINING']['DECOMPOSED']:
+    #         PIK_train = "/home/s2435462/HRC/data/trajectories_train_NTU_2D.dat"
+    #         PIK_test = "/home/s2435462/HRC/data/trajectories_test_NTU_2D.dat"
+    #     else:
+    #         PIK_train = "/home/s2435462/HRC/data/trajectories_train_NTU_2D.dat"
+    #         PIK_test = "/home/s2435462/HRC/data/trajectories_test_NTU_2D.dat"
+    # elif "3D" in dataset:
+    #     if cfg['TRAINING']['DECOMPOSED']:
+    #         PIK_train = "/home/s2435462/HRC/data/trajectories_train_NTU_3D.dat"
+    #         PIK_test = "/home/s2435462/HRC/data/trajectories_test_NTU_3D.dat"
+    #     else:
+    #         PIK_train = "/home/s2435462/HRC/data/trajectories_train_NTU_3D.dat"
+    #         PIK_test = "/home/s2435462/HRC/data/trajectories_test_NTU_3D.dat"
+    
     all_categories = get_NTU_categories()
 else:
-    raise Exception('dataset not recognized, must be HR-Crime or UTK')
+    raise Exception('dataset not recognized, must be HRC or NTU')
 
+
+
+'''
+LOAD TRAINING AND TEST DATASETS (ALREADY CREATED)
+'''
 logger.info("Loading train and test files")
 
 with open(PIK_train, "rb") as f:
@@ -114,6 +142,10 @@ logger.info("Loaded %d train and %d test files", len(train_crime_trajectories), 
 print_statistics(train_crime_trajectories, test_crime_trajectories, logger)
 
 
+
+'''
+SET THE SEGMENT LENGTH AND REMOVE SHORT TRAJECTORIES
+'''
 # Set the segment size
 segment_length = cfg['MODEL']['SEGMENT_LEN']
 # Remove the short trajectories from both train & test datasets
@@ -121,19 +153,15 @@ logger.info("Removing short trajectories")
 train_crime_trajectories = remove_short_trajectories(train_crime_trajectories, input_length=segment_length, input_gap=0, pred_length=0)
 test_crime_trajectories = remove_short_trajectories(test_crime_trajectories, input_length=segment_length, input_gap=0, pred_length=0)
 
-#use subset for when debugging to speed things up, comment  out to train on entire training set
-# if args.debug:
-#     #train_crime_trajectories = {key: value for key, value in train_crime_trajectories.items() if key < 'Arrest'}
-#     train_crime_trajectories = {key: value for key, value in train_crime_trajectories.items() if key[-8:] < '005_0005'}
-#     test_crime_trajectories = {key: value for key, value in test_crime_trajectories.items() if key[-8:] < '005_0005'}
-#     print('\nin debugging mode: %d train trajectories and %d test trajectories' % (len(train_crime_trajectories), len(test_crime_trajectories)))    
-# else:
-#     print('\nRemoved short trajectories: %d train trajectories and %d test trajectories left' % (len(train_crime_trajectories), len(test_crime_trajectories)))
 
+'''
+DEBUG MODE
+'''
 if cfg['MODEL']['DEBUG']:
-    train_crime_trajectories = {key: value for key, value in train_crime_trajectories.items() if 'S001' in key or 'S002' in key}
-    test_crime_trajectories = {key: value for key, value in test_crime_trajectories.items() if 'S003' in key or 'S004' in key}  
+    train_crime_trajectories = {key: value for key, value in train_crime_trajectories.items() if 'S001' in key or 'S002' in key or 'Shooting001' in key or 'Arson002'}
+    test_crime_trajectories = {key: value for key, value in test_crime_trajectories.items() if 'S003' in key or 'S004' in key or 'RoadAccidents010' in key or 'Robbery002'}  
     logger.info('IN DEBUG MODE!!!\n')  
+
 
 logger.info("Categories: %s", ','.join(all_categories))
 
@@ -143,6 +171,11 @@ embed_dim = cfg['MODEL']['EMBED_DIM']
 file_name_train = os.path.join(results_dir, 'training.csv')
 file_name_test = os.path.join(results_dir, 'testing.csv')
 
+
+
+'''
+TRAINING CODE
+'''
 logger.info("STARTING TRAINING")
 
 def train_model(embed_dim, epochs):
@@ -158,7 +191,7 @@ def train_model(embed_dim, epochs):
     kf = KFold(n_splits=n, random_state=42, shuffle=True)
     
     #file to save results
-    if dataset == "HR-Crime":
+    if dataset == "HRC":
         num_classes = 13
         num_joints = 17
         num_parts = 5
@@ -178,6 +211,9 @@ def train_model(embed_dim, epochs):
             num_joints = 25
             num_parts = 5
             in_chans = 3
+
+    if cfg['MODEL']['DECOMPOSED']:
+        num_joints+=1
     
     with open(file_name_train, 'a') as csv_file_train:
         csv_writer_train = csv.writer(csv_file_train, delimiter=';')
@@ -192,24 +228,24 @@ def train_model(embed_dim, epochs):
     Load segments from the trajectories and create Dataset from them
     '''
 
-    segmented_path_train = '/home/s2435462/HRC/data/segmented_trajectory_train_'+cfg['MODEL']['DATASET']+'_'+str(cfg['MODEL']['SEGMENT_LEN'])+'_'+str(cfg['MODEL']['DEBUG'])+'.pkl'
-    segmented_path_test = '/home/s2435462/HRC/data/segmented_trajectory_test_'+cfg['MODEL']['DATASET']+'_'+str(cfg['MODEL']['SEGMENT_LEN'])+'_'+str(cfg['MODEL']['DEBUG'])+'.pkl'
+    segmented_path_train = '/home/s2435462/HRC/data/'+dataset+'/segmented/segmented_trajectory_train_'+cfg['MODEL']['DATASET']+'_'+str(cfg['MODEL']['SEGMENT_LEN'])+'_'+decomposed+str(cfg['MODEL']['DEBUG'])+'.pkl'
+    segmented_path_test = '/home/s2435462/HRC/data/'+dataset+'/segmented/segmented_trajectory_test_'+cfg['MODEL']['DATASET']+'_'+str(cfg['MODEL']['SEGMENT_LEN'])+'_'+decomposed+str(cfg['MODEL']['DEBUG'])+'.pkl'
 
     if os.path.exists(segmented_path_train):
-        logger.info("Loading segmented Trajectory train dataset")
+        logger.info("Loading segmented Trajectory train dataset from %s",segmented_path_train)
         with open(segmented_path_train, 'rb') as fo:
             train = pickle.load(fo)
-        logger.info("Loading segmented Trajectory test dataset")
+        logger.info("Loading segmented Trajectory test dataset %s", segmented_path_test)
         with open(segmented_path_test, 'rb') as fo:
             test = pickle.load(fo)
     else:
         logger.info("Creating Trajectory Train and Test datasets")
         train = TrajectoryDataset(*extract_fixed_sized_segments(dataset, train_crime_trajectories, input_length=segment_length))
         test = TrajectoryDataset(*extract_fixed_sized_segments(dataset, test_crime_trajectories, input_length=segment_length))
-        logger.info("Writing segmented Trajectory train dataset")
+        logger.info("Writing segmented Trajectory train dataset to %s", segmented_path_train)
         with open(segmented_path_train, 'wb') as fi:
             pickle.dump(train, fi)
-        logger.info("Writing segmented Trajectory test dataset")
+        logger.info("Writing segmented Trajectory test dataset to %s", segmented_path_test)
         with open(segmented_path_test, 'wb') as fi:
             pickle.dump(test, fi)
 
@@ -442,7 +478,9 @@ def train_model(embed_dim, epochs):
     logger.info("Training results saved to {}".format(file_name_train))
     logger.info("Testing results saved to {}".format(file_name_test))
 
-
+'''
+EVALUATION FUNCTION
+'''
 def evaluation(model, data_loader):
     '''
     Function to evaluate any dataset (Validation and Test)
@@ -485,7 +523,7 @@ train_model(embed_dim=cfg['MODEL']['EMBED_DIM'], epochs=cfg['TRAINING']['EPOCHS'
 
 
 '''
-Read test set results and print average accuracy metrics of all folds of CV
+READ TEST SET RESULTS AND PRINT AVERAGE ACCURACY METRIC OF ALL FOLDS OF CV
 '''
 
 logger.info('before read_csv')
@@ -497,7 +535,7 @@ headers = ['FOLD', 'CATEGORY','ACCURACY(M)','ACCURACY(W)','PRECISION(W)','RECALL
 
 # Evaluate model performance on all categories
 t_all = PrettyTable(headers)
-results, t_all = evaluate_all(df_results, 'ALL', t_all)
+results, t_all = evaluate_all(df_results, 'ALL', t_all, len(all_categories))
 logger.info('\n' + str(t_all))
 
 log_metric("accuracy", results['acc'])

@@ -17,6 +17,7 @@ from sklearn.model_selection import KFold
 from prettytable import PrettyTable
 from mlflow import log_metric, log_param, start_run
 from datetime import timedelta
+from einops import rearrange
 import time
 import pickle
 import sys
@@ -28,8 +29,9 @@ import os
 import logging
 import argparse
 
+
 from trajectory import Trajectory, TrajectoryDataset, extract_fixed_sized_segments, split_into_train_and_test, remove_short_trajectories, get_categories, get_UTK_categories, get_NTU_categories
-from transformer import TemporalTransformer_4, TemporalTransformer_3, TemporalTransformer_2, BodyPartTransformer, SpatialTemporalTransformer, TemporalTransformer, Block, Attention, Mlp
+from transformer import TubeletTemporalTransformer, TemporalTransformer_4, TemporalTransformer_3, TemporalTransformer_2, BodyPartTransformer, SpatialTemporalTransformer, TemporalTransformer, Block, Attention, Mlp
 from utils import print_statistics, SetupLogger, evaluate_all, evaluate_category, conv_to_float, SetupFolders, train_acc
 
 # logger.info("Reading args")
@@ -289,7 +291,10 @@ def train_model(embed_dim, epochs):
         logger.info("Creating the model.")
         #intialize model
         if cfg['MODEL']['MODEL_TYPE'] == 'temporal':
-            model = TemporalTransformer(embed_dim=embed_dim, num_frames=segment_length, num_classes=num_classes, num_joints=num_joints, in_chans=in_chans, mlp_ratio=2., qkv_bias=True, qk_scale=None, dropout=0.1)
+            if cfg['MODEL']['TUBELET']:
+                model = TubeletTemporalTransformer(embed_dim=embed_dim, num_frames=segment_length, num_classes=num_classes, num_joints=num_joints, in_chans=in_chans, mlp_ratio=2., qkv_bias=True, qk_scale=None, dropout=0.1)
+            else:
+                model = TemporalTransformer(embed_dim=embed_dim, num_frames=segment_length, num_classes=num_classes, num_joints=num_joints, in_chans=in_chans, mlp_ratio=2., qkv_bias=True, qk_scale=None, dropout=0.1)
         elif cfg['MODEL']['MODEL_TYPE'] == 'temporal_2':
             model = TemporalTransformer_2(embed_dim=embed_dim, num_frames=segment_length, num_classes=num_classes, num_joints=num_joints, in_chans=in_chans, mlp_ratio=2., qkv_bias=True, qk_scale=None, dropout=0.1)
         elif cfg['MODEL']['MODEL_TYPE'] == 'temporal_3':
@@ -356,6 +361,9 @@ def train_model(embed_dim, epochs):
                 # persons = persons
                 frames = frames.to(device)
                 data = data.to(device)
+
+                if cfg['MODEL']['TUBELET']:
+                    data = rearrange(data, 'b f (h w c) -> b c f h w', h=5, w=5, c=2)
                 
                 optim.zero_grad(set_to_none=True)
                 
@@ -503,7 +511,9 @@ def evaluation(model, data_loader):
             persons = [y[0] for y in persons]
             frames = frames.to(device)
             data = data.to(device)
-            
+            if cfg['MODEL']['TUBELET']:
+                data = rearrange(data, 'b f (h w c) -> b c f h w', h=5, w=5, c=2)
+                
             outputs = model(data)
 
             loss = cross_entropy_loss(outputs, labels)  

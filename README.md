@@ -137,20 +137,20 @@ If the patience is exceeded or the final epoch is done, the training is stopped.
 ### `transformer.py`
 
 # RESULTS
-### Kayleigh
-
-|  **Model** | **c** | **f** | **BA** |
-|:----------:|:-----:|:-----:|:------:|
-| temporal_1 |  256  |   24  |  0.476 |
-| temporal_2 |  128  |   12  | 0.4325 |
-| temporal_3 |  256  |   12  | 0.4071 |
-| temporal_4 |  128  |   12  | 0.3887 |
-|     ST     |   32  |   60  | 0.4926 |
-|    SBPT    |   16  |   60  | 0.4876 |
-
-### AMJ
+## Kayleigh
 
 | **Dataset** |  **Model** | **c** | **f** | **BA** |
+|:-----------:|:----------:|:-----:|:-----:|:------:|
+|    HRC      | temporal_1 |  256  |   24  |  0.476 |
+|    HRC      | temporal_2 |  128  |   12  | 0.4325 |
+|    HRC      | temporal_3 |  256  |   12  | 0.4071 |
+|    HRC      | temporal_4 |  128  |   12  | 0.3887 |
+|    HRC      |     ST     |   32  |   60  | 0.4926 |
+|    HRC      |    SBPT    |   16  |   60  | 0.4876 |
+
+## AMJ
+
+| **Dataset** |  **Model** | **c** | **f** | **BA**       |
 |:-----------:|:----------:|:-----:|:-----:|:------------:|
 |    NTU_2D   | temporal_1 |  256  |   24  |    0.4617    |
 |    NTU_2D   | temporal_2 |  128  |   12  |    0.4861    |
@@ -159,7 +159,50 @@ If the patience is exceeded or the final epoch is done, the training is stopped.
 |    NTU_2D   |     ST     |   32  |   60  |    0.4288    |
 |    NTU_2D   |    SBPT    |   16  |   60  |    0.4886    |
 
+## AMJ Decomposed
+| **Dataset** |  **Model** | **c** | **f** | **BA**       |
+|:-----------:|:----------:|:-----:|:-----:|:------------:|
+|    HRC      | temporal_1 |  256  |   24  |    0.4527    |
+|    NTU_2D   | temporal_1 |  256  |   24  |    0.4423    |
+
+
+## AMJ Tubelet
+| **Dataset** |  **Model** | **c** | **f** | **BA**       | **epochs** |
+|:-----------:|:----------:|:-----:|:-----:|:------------:|:------------:|
+|    NTU_2D   | temporal_1 |  256  |   24  |    0.3872    | 10 |
+|    NTU_2D   | temporal_1 |  256  |   24  |    0.39    | 100 |
+
+
+
+
+
+
+
+
+
+
 ## PROGRESS
+
+### 18th November 2022
+* ST and SBPT trained fully
+* NTU_2D baseline done.
+* SBPT performed best compared to all others, contrary to Kayleigh's result (ST)
+* NTU_3D baseline yet to be done
+* Locally and Globally decomposed datasets generated.
+    * Training done with HRC and NTU_2D
+    * Performance slightly less
+* Tubelet Embedding
+    * Roughly done
+    * 25 keypoints rearranged as 5 x 5 x 2
+    * 3D convolution with kernel (5, 2, 2)
+    * Training now with patience 2
+    * Performance around 0.39
+* Doubts
+    * Overfitting?
+    * Proper way of extracting tubelets?
+        * NTU keypoints are in a mixed order (ref. Paper)
+        * HRC 17 keypoints rearrangement? (padding?) 
+    * External Examiner
 
 ### 9th November 2022
 * Got results for temporal_1, temporal_2, temporal_3 and temporal_4
@@ -227,6 +270,6 @@ temporal_3 : /home/s2435462/HRC/results/NTU_2D/temporal_3_c32_b1000_2/logs/logs.
 
 temporal_4 : /home/s2435462/HRC/results/NTU_2D/temporal_4_c32_b1000/logs/logs.log
 
-*spatio-temporal : /home/s2435462/HRC/results/NTU_2D/spatial-temporal_3_c32_b1000_6/logs/logs.log
+spatio-temporal : /home/s2435462/HRC/results/NTU_2D/spatial-temporal_3_c32_b1000_6/logs/logs.log
 
-*parts : /home/s2435462/HRC/results/NTU_2D/parts_3_c32_b100_8/logs/logs.log
+parts : /home/s2435462/HRC/results/NTU_2D/parts_3_c32_b100_8/logs/logs.log

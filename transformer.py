@@ -1341,4 +1341,108 @@ class BodyPartTransformer(nn.Module):
 
         return x
   
-  
+class TubeletTemporalTransformer(nn.Module):
+    def __init__(self, num_classes=13, num_frames=12, num_joints=17, in_chans=2, embed_dim=64, depth=4,
+                 num_heads=8, mlp_ratio=2., qkv_bias=True, qk_scale=None,
+                 drop_rate=0., attn_drop_rate=0., dropout=0.2):
+        """    ##########hybrid_backbone=None, representation_size=None,
+        Args:
+            num_classes (int): number of classes for classification head, HR-Crime constists of 13 crime categories
+            num_frames (int): number of input frames
+            num_joints (int): number of joints per skeleton
+            in_chans (int): number of input channels, 2D joints have 2 channels: (x,y)
+            embed_dim_ratio (int): embedding dimension ratio
+            depth (int): depth of transformer
+            num_heads (int): number of attention heads
+            mlp_ratio (int): ratio of mlp hidden dim to embedding dim
+            qkv_bias (bool): enable bias for qkv if True
+            qk_scale (float): override default qk scale of head_dim ** -0.5 if set
+            drop_rate (float): dropout rate
+            attn_drop_rate (float): attention dropout rate
+            drop_path_rate (float): stochastic depth rate
+        """
+        super().__init__()
+        
+        print('num_classes',num_classes)
+        print('embed_dim', embed_dim)
+        print('in_chans', in_chans)
+        print('num_joints', num_joints)
+        
+        self.c3d = torch.nn.Conv3d(in_chans, embed_dim, kernel_size=(5, 2, 2), stride=(5,2,2))
+
+        ### patch embedding
+        self.embedding = nn.Linear(num_joints*in_chans, embed_dim)
+
+        ### Additional class token
+        self.cls_token = nn.Parameter(torch.zeros(1, embed_dim))
+
+        ### positional embedding including class token
+        num_pos = int(num_frames/5) * int(5/2) * int(5/2)
+        
+        self.pos_embed = nn.Parameter(torch.zeros(num_pos+1, embed_dim))
+
+        self.pos_drop = nn.Dropout(p=drop_rate)
+
+        self.blocks = nn.ModuleList([
+            Block(
+                dim=embed_dim, num_heads=num_heads, mlp_ratio=mlp_ratio, qkv_bias=qkv_bias, qk_scale=qk_scale,
+                drop=drop_rate, attn_drop=attn_drop_rate, dropout=dropout
+                )
+            for i in range(depth)])
+        
+
+        self.norm = nn.LayerNorm(embed_dim, eps=1e-6)
+
+         # Representation layer
+        '''if representation_size and not distilled:
+            self.num_features = representation_size
+            self.pre_logits = nn.Sequential(OrderedDict([
+                ('fc', nn.Linear(embed_dim, representation_size)),
+                ('act', nn.Tanh())
+            ]))
+        else:
+            self.pre_logits = nn.Identity()'''
+        #self.pre_logits = nn.Identity()
+
+        # Classifier head(s)
+        "Define standard linear + softmax generation step."
+        "use learned linear transformation and softmax function to convert the output to predicted class probabilities"
+        self.head = nn.Linear(embed_dim, num_classes) #no softmax is used
+        
+        # initialize weights
+        self.init_weights()
+
+        # taken from https://pytorch.org/tutorials/beginner/transformer_tutorial.html
+    def init_weights(self):
+          initrange = 0.1
+          self.embedding.weight.data.uniform_(-initrange, initrange)
+          self.head.bias.data.zero_()
+          self.head.weight.data.uniform_(-initrange, initrange)
+
+    def forward_features(self, x):
+        
+        # x = rearrange(x, 'b f (h w c) -> b c f h w', h=5, w=5, c=2)
+
+        x = self.c3d(x)
+
+        x = rearrange(x, 'b o_c d h w -> b (d h w) o_c')
+        # x = self.embedding(x)
+
+        cls_token = self.cls_token.expand(x.shape[0], -1, -1)  # stole cls_tokens impl from Phil Wang, thanks
+
+        x = torch.cat((cls_token, x), dim=1)
+
+        x = self.pos_drop(x + self.pos_embed)
+
+        for blk in self.blocks:
+            x = blk(x)
+
+        x = self.norm(x)
+        cls_token_final = x[:, 0]
+        return cls_token_final
+    
+    def forward(self, x):
+        x = self.forward_features(x)
+        x = self.head(x)
+        x = F.log_softmax(x, dim=1)
+        return x

@@ -1,5 +1,5 @@
 META:
-  NAME : temporal_1_kayleigh_500_c_4_new_4
+  NAME : tubelet_test_NTU_2D_epochs_100_522
 
 MODEL:
   MODEL_TYPE : temporal   #type of model to train, temporal, temporal_2, temporal_3, temporal_4, spatial-temporal or parts
@@ -7,12 +7,14 @@ MODEL:
   SEGMENT_LEN : 24          #length of sliding window
   DEBUG : FALSE              #load subset of trajectories in debug mode
   DATASET : NTU_2D          #dataset used HR-Crime/UTK/NTU_2D/NTU_3D
+  DECOMPOSED : FALSE         #whether to use globally and locally decomposed trajectories
+  TUBELET : TRUE            #whether to use tubelet embeddings or not
 
 
 TRAINING:
   EPOCHS : 100              #maximum number of epochs during training
-  BATCH_SIZE : 200         #batch size for training
-  PATIENCE : 3             #patience before early stopping is enabled
+  BATCH_SIZE : 1000         #batch size for training
+  PATIENCE : 2             #patience before early stopping is enabled
   LR : 0.001                #starting learning rate for adaptive learning
   LR_PATIENCE : 3           #patience before learning rate is decreased
   KFOLD: 3                  #number of folds used for cross-validation

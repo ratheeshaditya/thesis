@@ -170,7 +170,7 @@ If the patience is exceeded or the final epoch is done, the training is stopped.
 | **Dataset** |  **Model** | **c** | **f** | **BA**       | **epochs** |
 |:-----------:|:----------:|:-----:|:-----:|:------------:|:------------:|
 |    NTU_2D   | temporal_1 |  256  |   24  |    0.3872    | 10 |
-|    NTU_2D   | temporal_1 |  256  |   24  |    0.39    | 100 |
+|    NTU_2D   | temporal_1 |  256  |   24  |    0.389    | 100 |
 
 
 
@@ -202,7 +202,16 @@ If the patience is exceeded or the final epoch is done, the training is stopped.
     * Proper way of extracting tubelets?
         * NTU keypoints are in a mixed order (ref. Paper)
         * HRC 17 keypoints rearrangement? (padding?) 
-    * External Examiner
+        * Possible with ST, SBPT?
+    * External Examiner - position?
+* TODO
+    * Try weight decay
+    * Find NTU_2D SOTA performance from other papers and make a table out of it
+    * Find external examiner from any research group (preferably EEMCS, asst. professor) with exp. in video/skeletal analysis. Maybe make a list of people and discuss with ET
+    * Global-Local decomposition -> Repeat global keypoint for each local keypoint, instead of just one global keypoint
+    * For tubelet, group body part keypoints, pad with zeroes if necessary
+    * Start writing final report, with continuous evaluation from ET. Latest by 9th December and then send to examiner by 19th so as to get green light by that week and then defend by January end
+    * Also work on visualization
 
 ### 9th November 2022
 * Got results for temporal_1, temporal_2, temporal_3 and temporal_4

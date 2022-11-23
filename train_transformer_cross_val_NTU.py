@@ -31,7 +31,7 @@ import argparse
 
 
 from trajectory import Trajectory, TrajectoryDataset, extract_fixed_sized_segments, split_into_train_and_test, remove_short_trajectories, get_categories, get_UTK_categories, get_NTU_categories
-from transformer import TubeletTemporalTransformer, TemporalTransformer_4, TemporalTransformer_3, TemporalTransformer_2, BodyPartTransformer, SpatialTemporalTransformer, TemporalTransformer, Block, Attention, Mlp
+from transformer import TubeletTemporalTransformer, TubeletTemporalPartTransformer, TemporalTransformer_4, TemporalTransformer_3, TemporalTransformer_2, BodyPartTransformer, SpatialTemporalTransformer, TemporalTransformer, Block, Attention, Mlp
 from utils import print_statistics, SetupLogger, evaluate_all, evaluate_category, conv_to_float, SetupFolders, train_acc
 
 # logger.info("Reading args")
@@ -69,7 +69,8 @@ log_param("model_type", cfg['MODEL']['MODEL_TYPE'])
 log_param("segment_length", cfg['MODEL']['SEGMENT_LEN'])
 log_param("dataset", cfg['MODEL']['DATASET'])
 log_param("batch_size", cfg['TRAINING']['BATCH_SIZE'])
-log_param("decomposed", cfg['MODEL']['DECOMPOSED'])
+log_param("decomposed", cfg['DECOMPOSED']['ENABLE'])
+log_param("weight_decay", cfg['TRAINING']['WEIGHT_DECAY'])
 
 logger.info('Number of arguments given: %s arguments.', str(len(sys.argv)))
 logger.info('Arguments given: %s', ';'.join([str(x) for x in sys.argv]))
@@ -84,12 +85,18 @@ logger.info('Available devices: %s', torch.cuda.device_count())
 
 writer = SummaryWriter(log_dir=log_dir) # Tensorboard writer
 
+if cfg['DECOMPOSED']['ENABLE']:
+    if cfg['DECOMPOSED']['TYPE'] == "GR":
+        dec_GR_path = "decom_GR_"
+    elif cfg['DECOMPOSED']['TYPE'] == "GS":
+        dec_GR_path = "decom_"
 
 # Set dataset
 dataset = cfg['MODEL']['DATASET']
+wd = cfg['TRAINING']['WEIGHT_DECAY']
 
 if dataset=="HRC":
-    decomposed = "decom_" if cfg['MODEL']['DECOMPOSED'] else ""
+    decomposed = dec_GR_path if cfg['DECOMPOSED']['ENABLE'] else ""
     dimension = "2D"
 
     PIK_train = "/home/s2435462/HRC/data/"+dataset+"/trajectories_train_HRC_"+decomposed+dimension+".dat"
@@ -102,7 +109,7 @@ elif dataset == "UTK":
     all_categories = get_UTK_categories()
 elif "NTU" in dataset:
     dimension = dataset.split('_')[-1]
-    decomposed = "decom_" if cfg['MODEL']['DECOMPOSED'] else ""
+    decomposed = dec_GR_path if cfg['DECOMPOSED']['ENABLE'] else ""
 
     PIK_train = "/home/s2435462/HRC/data/"+dataset+"/trajectories_train_NTU_"+decomposed+dimension+".dat"
     PIK_test = "/home/s2435462/HRC/data/"+dataset+"/trajectories_test_NTU_"+decomposed+dimension+".dat"
@@ -214,8 +221,11 @@ def train_model(embed_dim, epochs):
             num_parts = 5
             in_chans = 3
 
-    if cfg['MODEL']['DECOMPOSED']:
-        num_joints+=1
+    if cfg['DECOMPOSED']['ENABLE']:
+        if cfg['DECOMPOSED']['TYPE'] == "GR":
+            num_joints = num_joints*2
+        elif cfg['DECOMPOSED']['TYPE'] == "GS":
+            num_joints+=1
     
     with open(file_name_train, 'a') as csv_file_train:
         csv_writer_train = csv.writer(csv_file_train, delimiter=';')
@@ -230,26 +240,30 @@ def train_model(embed_dim, epochs):
     Load segments from the trajectories and create Dataset from them
     '''
 
-    segmented_path_train = '/home/s2435462/HRC/data/'+dataset+'/segmented/segmented_trajectory_train_'+cfg['MODEL']['DATASET']+'_'+str(cfg['MODEL']['SEGMENT_LEN'])+'_'+decomposed+str(cfg['MODEL']['DEBUG'])+'.pkl'
-    segmented_path_test = '/home/s2435462/HRC/data/'+dataset+'/segmented/segmented_trajectory_test_'+cfg['MODEL']['DATASET']+'_'+str(cfg['MODEL']['SEGMENT_LEN'])+'_'+decomposed+str(cfg['MODEL']['DEBUG'])+'.pkl'
+    # segmented_path_train = '/home/s2435462/HRC/data/'+dataset+'/segmented/segmented_trajectory_train_'+cfg['MODEL']['DATASET']+'_'+str(cfg['MODEL']['SEGMENT_LEN'])+'_'+decomposed+str(cfg['MODEL']['DEBUG'])+'.pkl'
+    # segmented_path_test = '/home/s2435462/HRC/data/'+dataset+'/segmented/segmented_trajectory_test_'+cfg['MODEL']['DATASET']+'_'+str(cfg['MODEL']['SEGMENT_LEN'])+'_'+decomposed+str(cfg['MODEL']['DEBUG'])+'.pkl'
 
-    if os.path.exists(segmented_path_train):
-        logger.info("Loading segmented Trajectory train dataset from %s",segmented_path_train)
-        with open(segmented_path_train, 'rb') as fo:
-            train = pickle.load(fo)
-        logger.info("Loading segmented Trajectory test dataset %s", segmented_path_test)
-        with open(segmented_path_test, 'rb') as fo:
-            test = pickle.load(fo)
-    else:
-        logger.info("Creating Trajectory Train and Test datasets")
-        train = TrajectoryDataset(*extract_fixed_sized_segments(dataset, train_crime_trajectories, input_length=segment_length))
-        test = TrajectoryDataset(*extract_fixed_sized_segments(dataset, test_crime_trajectories, input_length=segment_length))
-        logger.info("Writing segmented Trajectory train dataset to %s", segmented_path_train)
-        with open(segmented_path_train, 'wb') as fi:
-            pickle.dump(train, fi)
-        logger.info("Writing segmented Trajectory test dataset to %s", segmented_path_test)
-        with open(segmented_path_test, 'wb') as fi:
-            pickle.dump(test, fi)
+    # if os.path.exists(segmented_path_train):
+    #     logger.info("Loading segmented Trajectory train dataset from %s",segmented_path_train)
+    #     with open(segmented_path_train, 'rb') as fo:
+    #         train = pickle.load(fo)
+    #     logger.info("Loading segmented Trajectory test dataset %s", segmented_path_test)
+    #     with open(segmented_path_test, 'rb') as fo:
+    #         test = pickle.load(fo)
+    # else:
+    #     logger.info("Creating Trajectory Train and Test datasets")
+    #     train = TrajectoryDataset(*extract_fixed_sized_segments(dataset, train_crime_trajectories, input_length=segment_length))
+    #     test = TrajectoryDataset(*extract_fixed_sized_segments(dataset, test_crime_trajectories, input_length=segment_length))
+    #     logger.info("Writing segmented Trajectory train dataset to %s", segmented_path_train)
+    #     with open(segmented_path_train, 'wb') as fi:
+    #         pickle.dump(train, fi)
+    #     logger.info("Writing segmented Trajectory test dataset to %s", segmented_path_test)
+    #     with open(segmented_path_test, 'wb') as fi:
+    #         pickle.dump(test, fi)
+
+    logger.info("Creating Trajectory Train and Test datasets")
+    train = TrajectoryDataset(*extract_fixed_sized_segments(dataset, train_crime_trajectories, input_length=segment_length))
+    test = TrajectoryDataset(*extract_fixed_sized_segments(dataset, test_crime_trajectories, input_length=segment_length))
 
 
     def collator_for_lists(batch):
@@ -291,10 +305,7 @@ def train_model(embed_dim, epochs):
         logger.info("Creating the model.")
         #intialize model
         if cfg['MODEL']['MODEL_TYPE'] == 'temporal':
-            if cfg['MODEL']['TUBELET']:
-                model = TubeletTemporalTransformer(embed_dim=embed_dim, num_frames=segment_length, num_classes=num_classes, num_joints=num_joints, in_chans=in_chans, mlp_ratio=2., qkv_bias=True, qk_scale=None, dropout=0.1)
-            else:
-                model = TemporalTransformer(embed_dim=embed_dim, num_frames=segment_length, num_classes=num_classes, num_joints=num_joints, in_chans=in_chans, mlp_ratio=2., qkv_bias=True, qk_scale=None, dropout=0.1)
+            model = TemporalTransformer(embed_dim=embed_dim, num_frames=segment_length, num_classes=num_classes, num_joints=num_joints, in_chans=in_chans, mlp_ratio=2., qkv_bias=True, qk_scale=None, dropout=0.1)
         elif cfg['MODEL']['MODEL_TYPE'] == 'temporal_2':
             model = TemporalTransformer_2(embed_dim=embed_dim, num_frames=segment_length, num_classes=num_classes, num_joints=num_joints, in_chans=in_chans, mlp_ratio=2., qkv_bias=True, qk_scale=None, dropout=0.1)
         elif cfg['MODEL']['MODEL_TYPE'] == 'temporal_3':
@@ -304,7 +315,13 @@ def train_model(embed_dim, epochs):
         elif cfg['MODEL']['MODEL_TYPE'] == 'spatial-temporal':
             model = SpatialTemporalTransformer(embed_dim_ratio=embed_dim, num_frames=segment_length, num_classes=num_classes, num_joints=num_joints, in_chans=in_chans, mlp_ratio=2., qkv_bias=True, qk_scale=None, dropout=0.1)
         elif cfg['MODEL']['MODEL_TYPE'] == "parts":
-            model = BodyPartTransformer(dataset=cfg['MODEL']['DATASET'], embed_dim_ratio=embed_dim, num_frames=segment_length, num_classes=num_classes, num_joints=num_joints, in_chans=in_chans, mlp_ratio=2., qkv_bias=True, qk_scale=None, dropout=0.1)
+            model = BodyPartTransformer(dataset=dataset, embed_dim_ratio=embed_dim, num_frames=segment_length, num_classes=num_classes, num_joints=num_joints, in_chans=in_chans, mlp_ratio=2., qkv_bias=True, qk_scale=None, dropout=0.1)
+        elif cfg['MODEL']['MODEL_TYPE'] == "tubelet_temporal":
+            kernel = tuple(map(int, cfg['TUBELET']['KERNEL'].split(',')))
+            model = TubeletTemporalTransformer(dataset=dataset, embed_dim=embed_dim, num_frames=segment_length, num_classes=num_classes, num_joints=num_joints, in_chans=in_chans, kernel=kernel, mlp_ratio=2., qkv_bias=True, qk_scale=None, dropout=0.1)
+        elif cfg['MODEL']['MODEL_TYPE'] == "tubelet_temporal_part":
+            kernel = tuple(map(int, cfg['TUBELET']['KERNEL'].split(',')))
+            model = TubeletTemporalPartTransformer(dataset=dataset, embed_dim=embed_dim, num_frames=segment_length, num_classes=num_classes, num_joints=num_joints, in_chans=in_chans, kernel=kernel, mlp_ratio=2., qkv_bias=True, qk_scale=None, dropout=0.1)
         else:
             raise Exception('model_type is missing, must be temporal, temporal_2, temporal_3, temporal_4, spatial-temporal or parts')
         
@@ -321,7 +338,7 @@ def train_model(embed_dim, epochs):
                 nn.init.xavier_uniform_(p)
         
         # Define optimizer
-        optim = torch.optim.Adam(model.parameters(), lr=cfg['TRAINING']['LR'], betas=(0.9, 0.98), eps=1e-9)
+        optim = torch.optim.Adam(model.parameters(), lr=cfg['TRAINING']['LR'], weight_decay=wd, betas=(0.9, 0.98), eps=1e-9)
         cross_entropy_loss = nn.CrossEntropyLoss()
         
         '''
@@ -362,8 +379,8 @@ def train_model(embed_dim, epochs):
                 frames = frames.to(device)
                 data = data.to(device)
 
-                if cfg['MODEL']['TUBELET']:
-                    data = rearrange(data, 'b f (h w c) -> b c f h w', h=5, w=5, c=2)
+                # if cfg['TUBELET']['ENABLE']:
+                #     data = rearrange(data, 'b f (h w c) -> b c f h w', h=5, w=5, c=2)
                 
                 optim.zero_grad(set_to_none=True)
                 
@@ -511,8 +528,8 @@ def evaluation(model, data_loader):
             persons = [y[0] for y in persons]
             frames = frames.to(device)
             data = data.to(device)
-            if cfg['MODEL']['TUBELET']:
-                data = rearrange(data, 'b f (h w c) -> b c f h w', h=5, w=5, c=2)
+            # if cfg['TUBELET']['ENABLE']:
+            #     data = rearrange(data, 'b f (h w c) -> b c f h w', h=5, w=5, c=2)
                 
             outputs = model(data)
 

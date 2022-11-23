@@ -11,23 +11,30 @@ from utils import SetupLogger
 
 logger = SetupLogger('logger')
 
-dimension = '2D'
-# dimension = '3D'
+# dimension = '2D'
+dimension = '3D'
 
-dataset = "HRC"
-# dataset = "NTU"
+# dataset = "HRC"
+dataset = "NTU"
 
 # decomposed = "decom_"
-decomposed = ""
+decomposed = "decom_GR_"
+# decomposed = ""
 
 if dataset == "NTU":
   if decomposed:
-    path = '/home/s2435462/HRC/NTU/skeleton/decompose_trajectory_csv_'+dimension      
+    if "GR" in decomposed:
+      path = '/home/s2435462/HRC/NTU/skeleton/decompose_GR_trajectory_csv_'+dimension 
+    else:
+      path = '/home/s2435462/HRC/NTU/skeleton/decompose_trajectory_csv_'+dimension      
   else:
     path = '/home/s2435462/HRC/NTU/skeleton/trajectory_csv_'+dimension  
 elif dataset == "HRC":
   if decomposed:
-    path = "/home/s2435462/HRC/HRC_files/dataverse_files/decompose_trajectory_csv_2D"
+    if "GR" in decomposed:
+      path = "/home/s2435462/HRC/HRC_files/dataverse_files/decompose_GR_trajectory_csv_2D"
+    else:
+      path = "/home/s2435462/HRC/HRC_files/dataverse_files/decompose_trajectory_csv_2D"
   else:
     path = "/home/s2435462/HRC/HRC_files/dataverse_files/trajectories_all"
     # Data files already exist in /home/s2435462/HRC/HRC_files/peregrine_files/peregrine_data/MasterThesis/data
@@ -89,9 +96,9 @@ logger.info('Loaded %d trajectories.', len(trajectories))
 
 #save trajectories
 if dataset == "NTU":
-  PIK = "/home/s2435462/HRC/data/trajectories_NTU_"+decomposed+dimension+".dat"
+  PIK = "/home/s2435462/HRC/data/NTU_"+dimension+"/trajectories_NTU_"+decomposed+dimension+".dat"
 elif dataset == "HRC":
-  PIK = "/home/s2435462/HRC/data/trajectories_HRC_"+decomposed+dimension+".dat"
+  PIK = "/home/s2435462/HRC/data/HRC/trajectories_HRC_"+decomposed+dimension+".dat"
 
 with open(PIK, "wb") as f:
   pickle.dump(trajectories, f)
@@ -107,11 +114,11 @@ logger.info('%d train trajectories and %d test trajectories', len(trajectories_t
 
 #save trajectories for train and test
 if dataset == "NTU":
-  PIK_train = "/home/s2435462/HRC/data/trajectories_train_NTU_"+decomposed+ dimension +".dat"
-  PIK_test = "/home/s2435462/HRC/data/trajectories_test_NTU_"+decomposed+ dimension +".dat"
+  PIK_train = "/home/s2435462/HRC/data/NTU_"+dimension+"/trajectories_train_NTU_"+decomposed+ dimension +".dat"
+  PIK_test = "/home/s2435462/HRC/data/NTU_"+dimension+"/trajectories_test_NTU_"+decomposed+ dimension +".dat"
 elif dataset == "HRC":
-  PIK_train = "/home/s2435462/HRC/data/trajectories_train_HRC_"+decomposed+ dimension +".dat"
-  PIK_test = "/home/s2435462/HRC/data/trajectories_test_HRC_"+decomposed+ dimension +".dat"
+  PIK_train = "/home/s2435462/HRC/data/HRC/trajectories_train_HRC_"+decomposed+ dimension +".dat"
+  PIK_test = "/home/s2435462/HRC/data/HRC/trajectories_test_HRC_"+decomposed+ dimension +".dat"
 
 with open(PIK_train, "wb") as f:
   pickle.dump(trajectories_train, f)

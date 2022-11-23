@@ -7,20 +7,28 @@ import pickle
 from trajectory import Trajectory, get_NTU_categories, get_categories, remove_short_trajectories, split_into_train_and_test
 from utils import SetupLogger
 
-dimension = '2D'
-# dimension = '3D'
+# dimension = '2D'
+dimension = '3D'
 
-dataset = "HRC"
-# dataset = "NTU"
+# dataset = "HRC"
+dataset = "NTU"
 
-log_folder = '/home/s2435462/HRC/results/'+dataset+'_'+dimension+'decomposing'
+global_repeated = True
+# global_repeated = False
+
+if global_repeated:
+    log_folder = '/home/s2435462/HRC/results/'+dataset+'_'+dimension+'decomposing_GR'
+else:
+    log_folder = '/home/s2435462/HRC/results/'+dataset+'_'+dimension+'decomposing'
+
 os.makedirs(log_folder)
+
 logger = SetupLogger('logger', log_dir=log_folder)
 
 if dataset == "NTU":
     path = '/home/s2435462/HRC/NTU/skeleton/trajectory_csv_'+dimension
 elif dataset == "HRC":
-    path = '/home/s2435462/HRC/dataverse_files/trajectories_all' 
+    path = '/home/s2435462/HRC/HRC_files/dataverse_files/trajectories_all' 
 
 def decompose_trajectories_2D(trajectories_path, decompose_path, classes):
   trajectories = {}
@@ -62,15 +70,26 @@ def decompose_trajectories_2D(trajectories_path, decompose_path, classes):
                 x_g = (min(x_values) + max(x_values))/2
                 y_g = (min(y_values) + max(y_values))/2
 
-                trajectory_decomposed.append(x_g)
-                trajectory_decomposed.append(y_g)
+                if global_repeated:
+                    w = max(x_values) - min(x_values)
+                    h = max(y_values) - min(y_values)
 
-                w = max(x_values) - min(x_values)
-                h = max(y_values) - min(y_values)
+                    for x, y in zip(x_values, y_values):
+                        trajectory_decomposed.append(x_g)
+                        trajectory_decomposed.append(y_g)
 
-                for x, y in zip(x_values, y_values):
-                    trajectory_decomposed.append((x-x_g)/w)
-                    trajectory_decomposed.append((y-y_g)/h)
+                        trajectory_decomposed.append((x-x_g)/w)
+                        trajectory_decomposed.append((y-y_g)/h)
+                else:
+                    trajectory_decomposed.append(x_g)
+                    trajectory_decomposed.append(y_g)
+
+                    w = max(x_values) - min(x_values)
+                    h = max(y_values) - min(y_values)
+
+                    for x, y in zip(x_values, y_values):
+                        trajectory_decomposed.append((x-x_g)/w)
+                        trajectory_decomposed.append((y-y_g)/h)
                 
                 # print("x_values:", x_values)
                 # print("y_values:", y_values)
@@ -129,18 +148,32 @@ def decompose_trajectories_3D(trajectories_path, decompose_path, classes):
                 y_g = (min(y_values) + max(y_values))/2
                 z_g = (min(z_values) + max(z_values))/2
 
-                trajectory_decomposed.append(x_g)
-                trajectory_decomposed.append(y_g)
-                trajectory_decomposed.append(z_g)
+                if global_repeated:
+                    w = max(x_values) - min(x_values)
+                    h = max(y_values) - min(y_values)
+                    d = max(z_values) - min(z_values)
 
-                w = max(x_values) - min(x_values)
-                h = max(y_values) - min(y_values)
-                d = max(z_values) - min(z_values)
+                    for x, y, z in zip(x_values, y_values, z_values):
+                        trajectory_decomposed.append(x_g)
+                        trajectory_decomposed.append(y_g)
+                        trajectory_decomposed.append(z_g)
 
-                for x, y, z in zip(x_values, y_values, z_values):
-                    trajectory_decomposed.append((x-x_g)/w)
-                    trajectory_decomposed.append((y-y_g)/h)
-                    trajectory_decomposed.append((z-z_g)/d)
+                        trajectory_decomposed.append((x-x_g)/w)
+                        trajectory_decomposed.append((y-y_g)/h)
+                        trajectory_decomposed.append((z-z_g)/d)
+                else:
+                    trajectory_decomposed.append(x_g)
+                    trajectory_decomposed.append(y_g)
+                    trajectory_decomposed.append(z_g)
+
+                    w = max(x_values) - min(x_values)
+                    h = max(y_values) - min(y_values)
+                    d = max(z_values) - min(z_values)
+
+                    for x, y, z in zip(x_values, y_values, z_values):
+                        trajectory_decomposed.append((x-x_g)/w)
+                        trajectory_decomposed.append((y-y_g)/h)
+                        trajectory_decomposed.append((z-z_g)/d)
                 
                 # print("x_values:", x_values)
                 # print("y_values:", y_values)
@@ -166,17 +199,22 @@ def decompose_trajectories_3D(trajectories_path, decompose_path, classes):
   logger.info('count = %d', count_t)
 
 if dataset == "HRC":
-    decompose_path = '/home/s2435462/HRC/dataverse_files/decompose_trajectory_csv_'+dimension
+    if global_repeated:
+        decompose_path = '/home/s2435462/HRC/HRC_files/dataverse_files/decompose_GR_trajectory_csv_'+dimension
+    else:
+        decompose_path = '/home/s2435462/HRC/HRC_files/dataverse_files/decompose_trajectory_csv_'+dimension
     all_categories = get_categories()
 elif dataset == "NTU":
-    decompose_path = '/home/s2435462/HRC/NTU/skeleton/decompose_trajectory_csv_'+dimension
+    if global_repeated:
+        decompose_path = '/home/s2435462/HRC/NTU/skeleton/decompose_GR_trajectory_csv_'+dimension
+    else:
+        decompose_path = '/home/s2435462/HRC/NTU/skeleton/decompose_trajectory_csv_'+dimension
     all_categories = get_NTU_categories()
 
 #decompose trajectories
 if dataset == "NTU":
     if dimension=='2D':
         decompose_trajectories_2D(path, decompose_path, all_categories)
-
     if dimension=='3D':
         decompose_trajectories_3D(path, decompose_path, all_categories)
 elif dataset == "HRC":

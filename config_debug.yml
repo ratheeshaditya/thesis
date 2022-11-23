@@ -1,14 +1,20 @@
 META:
-  NAME : test_tubelet_7        #folder name to store trained model and results
+  NAME : test_HRC_tublelet_part        #folder name to store trained model and results
 
 MODEL:
-  MODEL_TYPE : temporal   #type of model to train, temporal, temporal_2, temporal_3, temporal_4, spatial-temporal or parts
+  MODEL_TYPE : tubelet_temporal_part   #type of model to train, temporal, temporal_2, temporal_3, temporal_4, spatial-temporal or parts
   EMBED_DIM : 256           #embedding dimension used by the model
   SEGMENT_LEN : 24          #length of sliding window (no.of frames)
   DEBUG : TRUE              #load subset of trajectories in debug mode
-  DATASET : NTU_2D          #dataset used HR-Crime/UTK/NTU_2D/NTU_3D
-  DECOMPOSED : FALSE         #whether to use globally and locally decomposed trajectories
-  TUBELET : TRUE            #whether to use tubelet embeddings or not
+  DATASET : HRC          #dataset used HR-Crime/UTK/NTU_2D/NTU_3D
+
+DECOMPOSED:
+  ENABLE: FALSE                #whether to use globally and locally decomposed trajectories
+  TYPE: GR                    #possible values: GR (Global repeated), GS (Global single)
+
+TUBELET:                    #whether to use tubelet embeddings or not
+  ENABLE: TRUE            
+  KERNEL: 5,2,2            #Kernel+Stride for tubelet embeddings
 
 TRAINING:
   EPOCHS : 2              #maximum number of epochs during training
@@ -17,3 +23,4 @@ TRAINING:
   LR : 0.001                #starting learning rate for adaptive learning
   LR_PATIENCE : 3           #patience before learning rate is decreased
   KFOLD: 2                  #number of folds used for cross-validation
+  WEIGHT_DECAY: 0           #weight decay value

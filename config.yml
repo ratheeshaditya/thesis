@@ -1,20 +1,21 @@
 META:
   # NAME : tubelet_part_transformer_1 #check batch size
-  NAME : HRC_tubelet_part_1 #check batch size
+  # NAME : HRC_tubelet_temporal_1 #check batch size
+  NAME : HRC_ttpcc1
 
 MODEL:
-  MODEL_TYPE : temporal   #type of model to train, temporal, temporal_2, temporal_3, temporal_4, spatial-temporal or parts
-  EMBED_DIM : 256           #embedding dimension used by the model
+  MODEL_TYPE : ttpcc1   #type of model to train, ttpmc1, ttpcc1, tubelet_temporal, temporal, temporal_2, temporal_3, temporal_4, spatial-temporal or parts
+  EMBED_DIM : 32           #embedding dimension used by the model
   SEGMENT_LEN : 24          #length of sliding window
   DEBUG : FALSE              #load subset of trajectories in debug mode
   DATASET : HRC          #dataset used HR-Crime/UTK/NTU_2D/NTU_3D   
 
 DECOMPOSED:
-  ENABLE: TRUE                #whether to use globally and locally decomposed trajectories
+  ENABLE: FALSE                #whether to use globally and locally decomposed trajectories
   TYPE: GR                    #possible values: GR (Global repeated), GS (Global single)
 
 TUBELET:                    #whether to use tubelet embeddings or not
-  ENABLE: FALSE            
+  ENABLE: TRUE            
   KERNEL: 5,2,2            #Kernel+Stride for tubelet embeddings
 
 TRAINING:

@@ -34,6 +34,6 @@ echo "Starting worker: "
 echo $CONDA_DEFAULT_ENV
 
 # python -u ../train_transformer_cross_val_NTU.py --filename training_NTU_2D_128d_100e_10p_001 --lr 0.001 --embed_dim 128 --dataset NTU_2D --model_type temporal --epochs 100 --patience 10
-python -u ../train_transformer_cross_val_NTU.py --config_file ../config_debug.yml
+# python -u ../train_transformer_cross_val_NTU.py --config_file ../config_debug.yml
 # python -u ../train_transformer_cross_val_NTU.py --filename temporal_2 --lr 0.001 --embed_dim 128 --dataset NTU_2D --model_type temporal_2 --epochs 100 --patience 10 --batch_size 2000
-# python -u ../train_transformer_cross_val_NTU.py --config_file ../config.yml
+python -u ../train_transformer_cross_val_NTU.py --config_file ../config.yml

@@ -152,25 +152,61 @@ If the patience is exceeded or the final epoch is done, the training is stopped.
 
 | **Dataset** |  **Model** | **c** | **f** | **BA**       |
 |:-----------:|:----------:|:-----:|:-----:|:------------:|
-|    NTU_2D   | temporal_1 |  256  |   24  |    0.4617    |
-|    NTU_2D   | temporal_2 |  128  |   12  |    0.4861    |
-|    NTU_2D   | temporal_3 |  256  |   12  |    0.2465    |
-|    NTU_2D   | temporal_4 |  128  |   12  |    0.3342    |
-|    NTU_2D   |     ST     |   32  |   60  |    0.4288    |
-|    NTU_2D   |    SBPT    |   16  |   60  |    0.4886    |
+|    NTU_2D   | temporal_1 |  256  |   24  |    0.4669    |
+|    NTU_2D   | temporal_2 |  128  |   12  |    0.4830    |
+|    NTU_2D   | temporal_3 |  256  |   12  |    0.2425    |
+|    NTU_2D   | temporal_4 |  128  |   12  |    0.3264    |
+|    NTU_2D   |     ST     |   32  |   60  |    0.3812    |
+|    NTU_2D   |    SBPT    |   16  |   60  |    0.4370    |
 
-## AMJ Decomposed
+## AMJ Decomposed GS
 | **Dataset** |  **Model** | **c** | **f** | **BA**       |
 |:-----------:|:----------:|:-----:|:-----:|:------------:|
 |    HRC      | temporal_1 |  256  |   24  |    0.4527    |
-|    NTU_2D   | temporal_1 |  256  |   24  |    0.4423    |
+|    NTU_2D   | temporal_1 |  256  |   24  |    0.4473    |
+
+## AMJ Decomposed GR
+| **Dataset** |  **Model** | **c** | **f** | **BA**       |
+|:-----------:|:----------:|:-----:|:-----:|:------------:|
+|    HRC      | temporal_1 |  256  |   24  |    0.3919    |
+|    NTU_2D   | temporal_1 |  256  |   24  |    0.4130    |
 
 
-## AMJ Tubelet
-| **Dataset** |  **Model** | **c** | **f** | **BA**       | **epochs** |
-|:-----------:|:----------:|:-----:|:-----:|:------------:|:------------:|
-|    NTU_2D   | temporal_1 |  256  |   24  |    0.3872    | 10 |
-|    NTU_2D   | temporal_1 |  256  |   24  |    0.389    | 100 |
+## AMJ Tubelet Normal (All keypoints together x 2)
+| **Dataset** |  **Model** | **c** | **f** | **BA**       |
+|:-----------:|:----------:|:-----:|:-----:|:------------:|
+|    HRC      | temporal_1 |  256  |   24  |    0.4871    |
+|    NTU_2D   | temporal_1 |  256  |   24  |    0.3893    |
+
+
+## AMJ Tubelet PART 1 (Mean)
+| **Dataset** |  **Model** | **c** | **f** | **BA**       |
+|:-----------:|:----------:|:-----:|:-----:|:------------:|
+|    HRC      | ---------- |  256  |   24  |    0.4050    |
+|    NTU_2D   | ---------- |  256  |   24  |    0.2323    |
+
+## AMJ Tubelet PART 2  (Concat)
+| **Dataset** |  **Model** | **c** | **f** | **BA**       |
+|:-----------:|:----------:|:-----:|:-----:|:------------:|
+|    HRC      | ---------- |  32   |   24  |    0.4576    |
+|    NTU_2D   | ---------- |  32   |   24  |    XXXXX     |
+
+## AMJ Tubelet PART 2  (Concat) (5,3,3)
+| **Dataset** |  **Model** | **c** | **f** | **BA**       |
+|:-----------:|:----------:|:-----:|:-----:|:------------:|
+|    NTU_2D   | ---------- |  32   |   24  |    0.4242    |
+
+## AMJ Tubelet PART 3  (Parts x 2, (individual, mean, concat))
+| **Dataset** |  **Model** | **c** | **f** | **BA**       |
+|:-----------:|:----------:|:-----:|:-----:|:------------:|
+|    HRC      | ---------- |  256  |   24  |    XXXXXX    |
+|    NTU_2D   | ---------- |  256  |   24  |    XXXXX     |
+
+## AMJ Tubelet PART SPATIAL  (Parts x 2, (individual, mean, concat))
+| **Dataset** |  **Model** | **c** | **f** | **BA**       |
+|:-----------:|:----------:|:-----:|:-----:|:------------:|
+|    HRC      | ---------- |  256  |   24  |    XXXXXX    |
+|    NTU_2D   | ---------- |  256  |   24  |    XXXXX     |
 
 
 
@@ -182,6 +218,15 @@ If the patience is exceeded or the final epoch is done, the training is stopped.
 
 
 ## PROGRESS
+
+### 25th November 2022
+* Trained repeated Global decomposition
+* Trained different types of Tubelet embedding
+    * Diagrams 
+* Report
+* Luuk
+* Jasper
+* Green Light
 
 ### 18th November 2022
 * ST and SBPT trained fully

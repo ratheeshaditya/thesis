@@ -1387,16 +1387,20 @@ class TubeletTemporalTransformer(nn.Module):
         print('in_chans', in_chans)
         print('num_joints', num_joints)
         
+        self.dataset = dataset
         self.c3d = torch.nn.Conv3d(in_chans, embed_dim, kernel_size=kernel, stride=kernel)
 
         ### patch embedding
-        self.embedding = nn.Linear(num_joints*in_chans, embed_dim)
+        # self.embedding = nn.Linear(num_joints*in_chans, embed_dim)
 
         ### Additional class token
         self.cls_token = nn.Parameter(torch.zeros(1, embed_dim))
 
         ### positional embedding including class token
-        num_pos = int(num_frames/5) * int(5/2) * int(5/2)
+        if "NTU" in self.dataset:
+            num_pos = int(num_frames/5) * int(5/2) * int(5/2)
+        elif "HRC" in self.dataset:
+            num_pos = int(num_frames/5) * int(5/2) * int(5/2)
         
         self.pos_embed = nn.Parameter(torch.zeros(num_pos+1, embed_dim))
 
@@ -1434,13 +1438,17 @@ class TubeletTemporalTransformer(nn.Module):
         # taken from https://pytorch.org/tutorials/beginner/transformer_tutorial.html
     def init_weights(self):
           initrange = 0.1
-          self.embedding.weight.data.uniform_(-initrange, initrange)
+        #   self.embedding.weight.data.uniform_(-initrange, initrange)
           self.head.bias.data.zero_()
           self.head.weight.data.uniform_(-initrange, initrange)
 
     def forward_features(self, x):
         
-        # x = rearrange(x, 'b f (h w c) -> b c f h w', h=5, w=5, c=2)
+        if "NTU" in self.dataset:
+            x = rearrange(x, 'b f (h w c) -> b c f h w', h=5, w=5, c=2)
+        elif "HRC" in self.dataset:
+            x = F.pad(x, (0,16))
+            x = rearrange(x, 'b f (h w c) -> b c f h w', h=5, w=5, c=2)
 
         x = self.c3d(x)
 
@@ -1466,7 +1474,7 @@ class TubeletTemporalTransformer(nn.Module):
         x = F.log_softmax(x, dim=1)
         return x
 
-class TubeletTemporalPartTransformer(nn.Module):
+class TubeletTemporalPart_mean_chan_1_Transformer(nn.Module):
     def __init__(self, dataset=None, num_classes=13, num_frames=12, num_joints=17, in_chans=2, embed_dim=64, kernel=None, depth=4,
                  num_heads=8, mlp_ratio=2., qkv_bias=True, qk_scale=None,
                  drop_rate=0., attn_drop_rate=0., dropout=0.2):
@@ -1495,7 +1503,7 @@ class TubeletTemporalPartTransformer(nn.Module):
 
         self.dataset = dataset
         
-        if "NTU" in dataset:
+        if "NTU" in dataset or "HRC" in dataset:
             self.torso_conv = torch.nn.Conv3d(1, embed_dim, kernel_size=kernel, stride=kernel)
             self.elbows_conv = torch.nn.Conv3d(1, embed_dim, kernel_size=kernel, stride=kernel)
             self.wrists_conv = torch.nn.Conv3d(1, embed_dim, kernel_size=kernel, stride=kernel)
@@ -1547,7 +1555,7 @@ class TubeletTemporalPartTransformer(nn.Module):
         # taken from https://pytorch.org/tutorials/beginner/transformer_tutorial.html
     def init_weights(self):
           initrange = 0.1
-          self.embedding.weight.data.uniform_(-initrange, initrange)
+        #   self.embedding.weight.data.uniform_(-initrange, initrange)
           self.head.bias.data.zero_()
           self.head.weight.data.uniform_(-initrange, initrange)
 
@@ -1557,21 +1565,21 @@ class TubeletTemporalPartTransformer(nn.Module):
         elif self.dataset == "NTU_2D":
             torso = get_keypoint(x, [4, 3, 9, 21, 5, 2, 17, 1, 13], 2)
             elbows = get_keypoint(x, [10, 6], 2)
-            wrists = get_keypoint(x, [10, 11, 12, 24, 25, 6, 7, 8, 22, 23], 2)
+            wrists = get_keypoint(x, [11, 12, 24, 25, 7, 8, 22, 23], 2)
             knees = get_keypoint(x, [18, 14], 2)
             ankles = get_keypoint(x, [19, 20, 15, 16], 2)
 
-            torso = rearrange(torso, "b f (x y) -> b f x y", x= 6, y =3)       ## shape: b f 6 3
-            torso = F.pad(input=torso, pad=(2, 1), mode='constant', value=0)   ## Shape: b f 6 6 
+            torso = rearrange(torso, "b f (x y) -> b f x y", x= 3, y =6)       ## shape: b f 3 6
+            torso = F.pad(input=torso, pad=(0, 0, 2, 1), mode='constant', value=0)   ## Shape: b f 6 6 
             torso = torso.unsqueeze(1)                                         ## Shape: b 1 f 6 6
 
             elbows = rearrange(elbows, "b f (x y) -> b f x y", x= 2, y =2)     ## Shape: b f 2 2 
             # elbows = F.pad(input=elbows, pad=(1, 1), mode='constant', value=0) ## Already a square
             elbows = elbows.unsqueeze(1)
 
-            wrists = rearrange(wrists, "b f (x y) -> b f x y", x= 5, y =4)     ## Shape: b f 5 4
-            wrists = F.pad(input=wrists, pad=(1, 0), mode='constant', value=0) ## Shape: b f 5 5
-            wrists = wrists.unsqueeze(1)                                       ## Shape: b 1 f 5 5
+            wrists = rearrange(wrists, "b f (x y) -> b f x y", x= 4, y =4)     ## Shape: b f 4 4
+            # wrists = F.pad(input=wrists, pad=(1, 0), mode='constant', value=0) ## Shape: b f 4 4
+            wrists = wrists.unsqueeze(1)                                       ## Shape: b 1 f 4 4
 
             knees = rearrange(knees, "b f (x y) -> b f x y", x= 2, y =2)       ## Shape: b f 2 2
             # knees = F.pad(input=knees, pad=(2, 1), mode='constant', value=0) ## Already a square
@@ -1609,15 +1617,15 @@ class TubeletTemporalPartTransformer(nn.Module):
             x = torch.stack((torso_embed, elbows_embed, wrists_embed, knees_embed, ankles_embed), dim=1)
 
             return x
-        elif dataset == "HRC":
+        elif self.dataset == "HRC":
             torso = get_keypoint(x, [1, 2, 3, 4, 5, 6, 7, 12, 13], 2)
             elbows = get_keypoint(x, [8, 9], 2)
             wrists = get_keypoint(x, [10, 11], 2)
             knees = get_keypoint(x, [14, 15], 2)
             ankles = get_keypoint(x, [16, 17], 2)
 
-            torso = rearrange(torso, "b f (x y) -> b f x y", x= 6, y =3)       ## shape: b f 6 3
-            torso = F.pad(input=torso, pad=(2, 1), mode='constant', value=0)   ## Shape: b f 6 6 
+            torso = rearrange(torso, "b f (x y) -> b f x y", x= 3, y =6)       ## shape: b f 6 3
+            torso = F.pad(input=torso, pad=(0, 0, 2, 1), mode='constant', value=0)   ## Shape: b f 6 6 
             torso = torso.unsqueeze(1)                                         ## Shape: b 1 f 6 6
 
             elbows = rearrange(elbows, "b f (x y) -> b f x y", x= 2, y =2)     ## Shape: b f 2 2 
@@ -1657,6 +1665,486 @@ class TubeletTemporalPartTransformer(nn.Module):
             wrists_embed = torch.mean(wrists_embed, dim=2)
             knees_embed = torch.mean(knees_embed, dim=2)
             ankles_embed = torch.mean(ankles_embed, dim=2)
+
+            # print(torso_embed.shape)
+            # print(elbows_embed.shape)
+
+            x = torch.stack((torso_embed, elbows_embed, wrists_embed, knees_embed, ankles_embed), dim=1)
+
+            return x
+            
+
+    def forward_features(self, x):
+        
+        # x = rearrange(x, 'b f (h w c) -> b c f h w', h=5, w=5, c=2)
+        x = self.tubelet_embedding(x)
+        # x = self.c3d(x)
+
+        # x = rearrange(x, 'b o_c d h w -> b (d h w) o_c')
+        # x = self.embedding(x)
+
+        cls_token = self.cls_token.expand(x.shape[0], -1, -1)  # stole cls_tokens impl from Phil Wang, thanks
+        # print(x.shape)
+        # print(cls_token.shape)
+        x = torch.cat((cls_token, x), dim=1)
+
+        x = self.pos_drop(x + self.pos_embed)
+
+        for blk in self.blocks:
+            x = blk(x)
+
+        x = self.norm(x)
+        cls_token_final = x[:, 0]
+        return cls_token_final
+    
+    def forward(self, x):
+        x = self.forward_features(x)
+        x = self.head(x)
+        x = F.log_softmax(x, dim=1)
+        return x
+
+class TubeletTemporalPart_concat_chan_1_Transformer(nn.Module):
+    ## Instead of mean, concatenate with a smaller dimension. 
+    ## Also means you have to pad to make same dimension as largest input square. 
+    ## Otherwise, the embeddings will have different lengths after concatenating.
+    def __init__(self, dataset=None, num_classes=13, num_frames=12, num_joints=17, in_chans=2, embed_dim=64, kernel=None, depth=4,
+                 num_heads=8, mlp_ratio=2., qkv_bias=True, qk_scale=None,
+                 drop_rate=0., attn_drop_rate=0., dropout=0.2):
+        """    ##########hybrid_backbone=None, representation_size=None,
+        Args:
+            num_classes (int): number of classes for classification head, HR-Crime constists of 13 crime categories
+            num_frames (int): number of input frames
+            num_joints (int): number of joints per skeleton
+            in_chans (int): number of input channels, 2D joints have 2 channels: (x,y)
+            embed_dim_ratio (int): embedding dimension ratio
+            depth (int): depth of transformer
+            num_heads (int): number of attention heads
+            mlp_ratio (int): ratio of mlp hidden dim to embedding dim
+            qkv_bias (bool): enable bias for qkv if True
+            qk_scale (float): override default qk scale of head_dim ** -0.5 if set
+            drop_rate (float): dropout rate
+            attn_drop_rate (float): attention dropout rate
+            drop_path_rate (float): stochastic depth rate
+        """
+        super().__init__()
+        
+        print('num_classes',num_classes)
+        print('embed_dim', embed_dim)
+        print('in_chans', in_chans)
+        print('num_joints', num_joints)
+
+        self.dataset = dataset
+        
+        if "NTU" in dataset or "HRC" in dataset:
+            self.torso_conv = torch.nn.Conv3d(1, embed_dim, kernel_size=kernel, stride=kernel)
+            self.elbows_conv = torch.nn.Conv3d(1, embed_dim, kernel_size=kernel, stride=kernel)
+            self.wrists_conv = torch.nn.Conv3d(1, embed_dim, kernel_size=kernel, stride=kernel)
+            self.knees_conv = torch.nn.Conv3d(1, embed_dim, kernel_size=kernel, stride=kernel)
+            self.ankles_conv = torch.nn.Conv3d(1, embed_dim, kernel_size=kernel, stride=kernel)
+
+        ### patch embedding
+        # self.embedding = nn.Linear(num_joints*in_chans, embed_dim)
+
+        num_embed = (int((num_frames-kernel[0])/kernel[0]) + 1) * (int((6-kernel[1])/kernel[1]) + 1) * (int((6-kernel[2])/kernel[2]) + 1)
+        
+        self.final_embed_dim = num_embed * embed_dim
+        ### Additional class token
+        self.cls_token = nn.Parameter(torch.zeros(1, self.final_embed_dim))
+
+        ### positional embedding including class token
+        # num_pos = int(num_frames/5) * int(5/2) * int(5/2)
+
+        
+        
+        
+
+        self.pos_embed = nn.Parameter(torch.zeros(5+1, self.final_embed_dim)) ## 5 body parts + 1 pos embed
+
+        self.pos_drop = nn.Dropout(p=drop_rate)
+
+        self.blocks = nn.ModuleList([
+            Block(
+                dim=self.final_embed_dim, num_heads=num_heads, mlp_ratio=mlp_ratio, qkv_bias=qkv_bias, qk_scale=qk_scale,
+                drop=drop_rate, attn_drop=attn_drop_rate, dropout=dropout
+                )
+            for i in range(depth)])
+        
+
+        self.norm = nn.LayerNorm(self.final_embed_dim, eps=1e-6)
+
+         # Representation layer
+        '''if representation_size and not distilled:
+            self.num_features = representation_size
+            self.pre_logits = nn.Sequential(OrderedDict([
+                ('fc', nn.Linear(embed_dim, representation_size)),
+                ('act', nn.Tanh())
+            ]))
+        else:
+            self.pre_logits = nn.Identity()'''
+        #self.pre_logits = nn.Identity()
+
+        # Classifier head(s)
+        "Define standard linear + softmax generation step."
+        "use learned linear transformation and softmax function to convert the output to predicted class probabilities"
+        self.head = nn.Linear(self.final_embed_dim, num_classes) #no softmax is used
+        
+        # initialize weights
+        self.init_weights()
+
+        # taken from https://pytorch.org/tutorials/beginner/transformer_tutorial.html
+    def init_weights(self):
+          initrange = 0.1
+        #   self.embedding.weight.data.uniform_(-initrange, initrange)
+          self.head.bias.data.zero_()
+          self.head.weight.data.uniform_(-initrange, initrange)
+
+    def tubelet_embedding(self, x):
+        if self.dataset == "NTU_3D":
+            torso = get_keypoint(x, [], 3)
+        elif self.dataset == "NTU_2D":
+            torso = get_keypoint(x, [4, 3, 9, 21, 5, 2, 17, 1, 13], 2)
+            elbows = get_keypoint(x, [10, 6], 2)
+            wrists = get_keypoint(x, [11, 12, 24, 25, 7, 8, 22, 23], 2)
+            knees = get_keypoint(x, [18, 14], 2)
+            ankles = get_keypoint(x, [19, 20, 15, 16], 2)
+
+            torso = rearrange(torso, "b f (x y) -> b f x y", x= 3, y =6)       ## shape: b f 6 3
+            torso = F.pad(input=torso, pad=(0, 0, 2, 1), mode='constant', value=0)   ## Shape: b f 6 6 
+            torso = torso.unsqueeze(1)                                         ## Shape: b 1 f 6 6
+
+            elbows = rearrange(elbows, "b f (x y) -> b f x y", x= 2, y =2)     ## Shape: b f 2 2 
+            elbows = F.pad(input=elbows, pad=(2, 2, 2, 2), mode='constant', value=0) ## Shape: b f 6 6
+            elbows = elbows.unsqueeze(1)
+
+            wrists = rearrange(wrists, "b f (x y) -> b f x y", x= 4, y =4)     ## Shape: b f 4 4
+            wrists = F.pad(input=wrists, pad=(1, 1, 1, 1), mode='constant', value=0) ## Shape: b f 6 6
+            wrists = wrists.unsqueeze(1)                                       ## Shape: b 1 f 6 6
+
+            knees = rearrange(knees, "b f (x y) -> b f x y", x= 2, y =2)       ## Shape: b f 2 2
+            knees = F.pad(input=knees, pad=(2, 2, 2, 2), mode='constant', value=0) ## Shape: b f 6 6
+            knees = knees.unsqueeze(1)                                         ## Shape: b 1 f 6 6
+
+            ankles = rearrange(ankles, "b f (x y) -> b f x y", x= 4, y =2)     ## Shape: b f 4 2
+            ankles = F.pad(input=ankles, pad=(2, 2, 1, 1), mode='constant', value=0) ## Shape: b f 6 6
+            ankles = ankles.unsqueeze(1)                                       ## Shape: b 1 f 6 6
+
+            torso_embed = self.torso_conv(torso)
+            elbows_embed = self.elbows_conv(elbows)
+            wrists_embed = self.wrists_conv(wrists)
+            knees_embed = self.knees_conv(knees)
+            ankles_embed = self.ankles_conv(ankles)
+
+            # print(torso_embed.shape)
+            # print(elbows_embed.shape)
+
+            torso_embed = torch.flatten(torso_embed, start_dim=2)
+            elbows_embed = torch.flatten(elbows_embed, start_dim=2)
+            wrists_embed = torch.flatten(wrists_embed, start_dim=2)
+            knees_embed = torch.flatten(knees_embed, start_dim=2)
+            ankles_embed = torch.flatten(ankles_embed, start_dim=2)
+
+            ## CONCAT THE RESULTS OF CONVOLUTION (N x 32 dimensional)
+            torso_embed = rearrange(torso_embed, "b e n -> b (n e)")
+            elbows_embed = rearrange(elbows_embed, "b e n -> b (n e)")
+            wrists_embed = rearrange(wrists_embed, "b e n -> b (n e)")
+            knees_embed = rearrange(knees_embed, "b e n -> b (n e)")
+            ankles_embed = rearrange(ankles_embed, "b e n -> b (n e)")
+
+            # print(torso_embed.shape)
+            # print(elbows_embed.shape)
+
+            x = torch.stack((torso_embed, elbows_embed, wrists_embed, knees_embed, ankles_embed), dim=1)
+
+            return x
+        elif self.dataset == "HRC":
+            torso = get_keypoint(x, [1, 2, 3, 4, 5, 6, 7, 12, 13], 2)
+            elbows = get_keypoint(x, [8, 9], 2)
+            wrists = get_keypoint(x, [10, 11], 2)
+            knees = get_keypoint(x, [14, 15], 2)
+            ankles = get_keypoint(x, [16, 17], 2)
+
+            torso = rearrange(torso, "b f (x y) -> b f x y", x= 3, y =6)       ## shape: b f 6 3
+            torso = F.pad(input=torso, pad=(0, 0, 2, 1), mode='constant', value=0)   ## Shape: b f 6 6 
+            torso = torso.unsqueeze(1)                                         ## Shape: b 1 f 6 6
+
+            elbows = rearrange(elbows, "b f (x y) -> b f x y", x= 2, y =2)     ## Shape: b f 2 2 
+            elbows = F.pad(input=elbows, pad=(2, 2, 2, 2), mode='constant', value=0) ## Shape: b f 6 6
+            elbows = elbows.unsqueeze(1)
+
+            wrists = rearrange(wrists, "b f (x y) -> b f x y", x= 2, y =2)     ## Shape: b f 2 2
+            wrists = F.pad(input=wrists, pad=(2, 2, 2, 2), mode='constant', value=0) ## Shape: b f 6 6
+            wrists = wrists.unsqueeze(1)                                       ## Shape: b 1 f 6 6
+
+            knees = rearrange(knees, "b f (x y) -> b f x y", x= 2, y =2)       ## Shape: b f 2 2
+            knees = F.pad(input=knees, pad=(2, 2, 2, 2), mode='constant', value=0) ## Shape: b f 6 6
+            knees = knees.unsqueeze(1)                                         ## Shape: b 1 f 6 6
+
+            ankles = rearrange(ankles, "b f (x y) -> b f x y", x= 2, y =2)     ## Shape: b f 4 2
+            ankles = F.pad(input=ankles, pad=(2, 2, 2, 2), mode='constant', value=0) ## Shape: b f 6 6
+            ankles = ankles.unsqueeze(1)                                       ## Shape: b 1 f 6 6
+
+            torso_embed = self.torso_conv(torso)
+            elbows_embed = self.elbows_conv(elbows)
+            wrists_embed = self.wrists_conv(wrists)
+            knees_embed = self.knees_conv(knees)
+            ankles_embed = self.ankles_conv(ankles)
+
+            # print(torso_embed.shape)
+            # print(elbows_embed.shape)
+
+            torso_embed = torch.flatten(torso_embed, start_dim=2)
+            elbows_embed = torch.flatten(elbows_embed, start_dim=2)
+            wrists_embed = torch.flatten(wrists_embed, start_dim=2)
+            knees_embed = torch.flatten(knees_embed, start_dim=2)
+            ankles_embed = torch.flatten(ankles_embed, start_dim=2)
+
+            ## CONCAT THE RESULTS OF CONVOLUTION (N x 32 dimensional)
+            torso_embed = rearrange(torso_embed, "b e n -> b (n e)")
+            elbows_embed = rearrange(elbows_embed, "b e n -> b (n e)")
+            wrists_embed = rearrange(wrists_embed, "b e n -> b (n e)")
+            knees_embed = rearrange(knees_embed, "b e n -> b (n e)")
+            ankles_embed = rearrange(ankles_embed, "b e n -> b (n e)")
+
+            # print(torso_embed.shape)
+            # print(elbows_embed.shape)
+
+            x = torch.stack((torso_embed, elbows_embed, wrists_embed, knees_embed, ankles_embed), dim=1)
+
+            return x
+            
+
+    def forward_features(self, x):
+        
+        # x = rearrange(x, 'b f (h w c) -> b c f h w', h=5, w=5, c=2)
+        x = self.tubelet_embedding(x)
+        # x = self.c3d(x)
+
+        # x = rearrange(x, 'b o_c d h w -> b (d h w) o_c')
+        # x = self.embedding(x)
+
+        cls_token = self.cls_token.expand(x.shape[0], -1, -1)  # stole cls_tokens impl from Phil Wang, thanks
+        # print(x.shape)
+        # print(cls_token.shape)
+        x = torch.cat((cls_token, x), dim=1)
+
+        x = self.pos_drop(x + self.pos_embed)
+
+        for blk in self.blocks:
+            x = blk(x)
+
+        x = self.norm(x)
+        cls_token_final = x[:, 0]
+        return cls_token_final
+    
+    def forward(self, x):
+        x = self.forward_features(x)
+        x = self.head(x)
+        x = F.log_softmax(x, dim=1)
+        return x
+
+class TubeletTemporalPart_2_Chan_2_Transformer(nn.Module):
+    ## Instead of mean, concatenate with a smaller dimension. 
+    ## Also means you have to pad to make same dimension as largest input square. 
+    ## Otherwise, the embeddings will have different lengths after concatenating.
+    ## Consider two channels of the keypoints instead of flattening (x, y)
+    ## Max
+    def __init__(self, dataset=None, num_classes=13, num_frames=12, num_joints=17, in_chans=2, embed_dim=64, kernel=None, depth=4,
+                 num_heads=8, mlp_ratio=2., qkv_bias=True, qk_scale=None,
+                 drop_rate=0., attn_drop_rate=0., dropout=0.2):
+        """    ##########hybrid_backbone=None, representation_size=None,
+        Args:
+            num_classes (int): number of classes for classification head, HR-Crime constists of 13 crime categories
+            num_frames (int): number of input frames
+            num_joints (int): number of joints per skeleton
+            in_chans (int): number of input channels, 2D joints have 2 channels: (x,y)
+            embed_dim_ratio (int): embedding dimension ratio
+            depth (int): depth of transformer
+            num_heads (int): number of attention heads
+            mlp_ratio (int): ratio of mlp hidden dim to embedding dim
+            qkv_bias (bool): enable bias for qkv if True
+            qk_scale (float): override default qk scale of head_dim ** -0.5 if set
+            drop_rate (float): dropout rate
+            attn_drop_rate (float): attention dropout rate
+            drop_path_rate (float): stochastic depth rate
+        """
+        super().__init__()
+        
+        print('num_classes',num_classes)
+        print('embed_dim', embed_dim)
+        print('in_chans', in_chans)
+        print('num_joints', num_joints)
+
+        self.dataset = dataset
+        
+        if "NTU" in dataset or "HRC" in dataset:
+            self.torso_conv = torch.nn.Conv3d(2, embed_dim, kernel_size=kernel, stride=kernel)
+            self.elbows_conv = torch.nn.Conv3d(2, embed_dim, kernel_size=kernel, stride=kernel)
+            self.wrists_conv = torch.nn.Conv3d(2, embed_dim, kernel_size=kernel, stride=kernel)
+            self.knees_conv = torch.nn.Conv3d(2, embed_dim, kernel_size=kernel, stride=kernel)
+            self.ankles_conv = torch.nn.Conv3d(2, embed_dim, kernel_size=kernel, stride=kernel)
+
+        ### patch embedding
+        # self.embedding = nn.Linear(num_joints*in_chans, embed_dim)
+
+        num_embed = (int((num_frames-kernel[0])/kernel[0]) + 1) * (int((6-kernel[1])/kernel[1]) + 1) * (int((6-kernel[2])/kernel[2]) + 1)
+        
+        self.final_embed_dim = num_embed * embed_dim
+        ### Additional class token
+        self.cls_token = nn.Parameter(torch.zeros(1, self.final_embed_dim))
+
+        ### positional embedding including class token
+        # num_pos = int(num_frames/5) * int(5/2) * int(5/2)
+
+        
+        
+        
+
+        self.pos_embed = nn.Parameter(torch.zeros(5+1, self.final_embed_dim)) ## 5 body parts + 1 pos embed
+
+        self.pos_drop = nn.Dropout(p=drop_rate)
+
+        self.blocks = nn.ModuleList([
+            Block(
+                dim=self.final_embed_dim, num_heads=num_heads, mlp_ratio=mlp_ratio, qkv_bias=qkv_bias, qk_scale=qk_scale,
+                drop=drop_rate, attn_drop=attn_drop_rate, dropout=dropout
+                )
+            for i in range(depth)])
+        
+
+        self.norm = nn.LayerNorm(self.final_embed_dim, eps=1e-6)
+
+         # Representation layer
+        '''if representation_size and not distilled:
+            self.num_features = representation_size
+            self.pre_logits = nn.Sequential(OrderedDict([
+                ('fc', nn.Linear(embed_dim, representation_size)),
+                ('act', nn.Tanh())
+            ]))
+        else:
+            self.pre_logits = nn.Identity()'''
+        #self.pre_logits = nn.Identity()
+
+        # Classifier head(s)
+        "Define standard linear + softmax generation step."
+        "use learned linear transformation and softmax function to convert the output to predicted class probabilities"
+        self.head = nn.Linear(self.final_embed_dim, num_classes) #no softmax is used
+        
+        # initialize weights
+        self.init_weights()
+
+        # taken from https://pytorch.org/tutorials/beginner/transformer_tutorial.html
+    def init_weights(self):
+          initrange = 0.1
+        #   self.embedding.weight.data.uniform_(-initrange, initrange)
+          self.head.bias.data.zero_()
+          self.head.weight.data.uniform_(-initrange, initrange)
+
+    def tubelet_embedding(self, x):
+        if self.dataset == "NTU_3D":
+            torso = get_keypoint(x, [], 3)
+        elif self.dataset == "NTU_2D":
+            torso = get_keypoint(x, [4, 3, 9, 21, 5, 2, 17, 1, 13], 2)
+            elbows = get_keypoint(x, [10, 6], 2)
+            wrists = get_keypoint(x, [11, 12, 24, 25, 7, 8, 22, 23], 2)
+            knees = get_keypoint(x, [18, 14], 2)
+            ankles = get_keypoint(x, [19, 20, 15, 16], 2)
+
+            torso = rearrange(torso, "b f (x y) -> b f x y", x= 3, y =6)       ## shape: b f 6 3
+            torso = F.pad(input=torso, pad=(0, 0, 2, 1), mode='constant', value=0)   ## Shape: b f 6 6 
+            torso = torso.unsqueeze(1)                                         ## Shape: b 1 f 6 6
+
+            elbows = rearrange(elbows, "b f (x y) -> b f x y", x= 2, y =2)     ## Shape: b f 2 2 
+            elbows = F.pad(input=elbows, pad=(2, 2, 2, 2), mode='constant', value=0) ## Shape: b f 6 6
+            elbows = elbows.unsqueeze(1)
+
+            wrists = rearrange(wrists, "b f (x y) -> b f x y", x= 4, y =4)     ## Shape: b f 5 4
+            wrists = F.pad(input=wrists, pad=(1, 1, 1, 1), mode='constant', value=0) ## Shape: b f 6 6
+            wrists = wrists.unsqueeze(1)                                       ## Shape: b 1 f 6 6
+
+            knees = rearrange(knees, "b f (x y) -> b f x y", x= 2, y =2)       ## Shape: b f 2 2
+            knees = F.pad(input=knees, pad=(2, 2, 2, 2), mode='constant', value=0) ## Shape: b f 6 6
+            knees = knees.unsqueeze(1)                                         ## Shape: b 1 f 6 6
+
+            ankles = rearrange(ankles, "b f (x y) -> b f x y", x= 4, y =2)     ## Shape: b f 4 2
+            ankles = F.pad(input=ankles, pad=(2, 2, 1, 1), mode='constant', value=0) ## Shape: b f 6 6
+            ankles = ankles.unsqueeze(1)                                       ## Shape: b 1 f 6 6
+
+            torso_embed = self.torso_conv(torso)
+            elbows_embed = self.elbows_conv(elbows)
+            wrists_embed = self.wrists_conv(wrists)
+            knees_embed = self.knees_conv(knees)
+            ankles_embed = self.ankles_conv(ankles)
+
+            # print(torso_embed.shape)
+            # print(elbows_embed.shape)
+
+            torso_embed = torch.flatten(torso_embed, start_dim=2)
+            elbows_embed = torch.flatten(elbows_embed, start_dim=2)
+            wrists_embed = torch.flatten(wrists_embed, start_dim=2)
+            knees_embed = torch.flatten(knees_embed, start_dim=2)
+            ankles_embed = torch.flatten(ankles_embed, start_dim=2)
+
+            ## CONCAT THE RESULTS OF CONVOLUTION (N x 32 dimensional)
+            torso_embed = rearrange(torso_embed, "b e n -> b (n e)")
+            elbows_embed = rearrange(elbows_embed, "b e n -> b (n e)")
+            wrists_embed = rearrange(wrists_embed, "b e n -> b (n e)")
+            knees_embed = rearrange(knees_embed, "b e n -> b (n e)")
+            ankles_embed = rearrange(ankles_embed, "b e n -> b (n e)")
+
+            # print(torso_embed.shape)
+            # print(elbows_embed.shape)
+
+            x = torch.stack((torso_embed, elbows_embed, wrists_embed, knees_embed, ankles_embed), dim=1)
+
+            return x
+        elif self.dataset == "HRC":
+            torso = get_keypoint(x, [1, 2, 3, 4, 5, 6, 7, 12, 13], 2)
+            elbows = get_keypoint(x, [8, 9], 2)
+            wrists = get_keypoint(x, [10, 11], 2)
+            knees = get_keypoint(x, [14, 15], 2)
+            ankles = get_keypoint(x, [16, 17], 2)
+
+            torso = rearrange(torso, "b f (x y) -> b f x y", x= 3, y =6)       ## shape: b f 6 3
+            torso = F.pad(input=torso, pad=(0, 0, 2, 1), mode='constant', value=0)   ## Shape: b f 6 6 
+            torso = torso.unsqueeze(1)                                         ## Shape: b 1 f 6 6
+
+            elbows = rearrange(elbows, "b f (x y) -> b f x y", x= 2, y =2)     ## Shape: b f 2 2 
+            elbows = F.pad(input=elbows, pad=(2, 2, 2, 2), mode='constant', value=0) ## Shape: b f 6 6
+            elbows = elbows.unsqueeze(1)
+
+            wrists = rearrange(wrists, "b f (x y) -> b f x y", x= 2, y =2)     ## Shape: b f 2 2
+            wrists = F.pad(input=wrists, pad=(2, 2, 2, 2), mode='constant', value=0) ## Shape: b f 6 6
+            wrists = wrists.unsqueeze(1)                                       ## Shape: b 1 f 6 6
+
+            knees = rearrange(knees, "b f (x y) -> b f x y", x= 2, y =2)       ## Shape: b f 2 2
+            knees = F.pad(input=knees, pad=(2, 2, 2, 2), mode='constant', value=0) ## Shape: b f 6 6
+            knees = knees.unsqueeze(1)                                         ## Shape: b 1 f 6 6
+
+            ankles = rearrange(ankles, "b f (x y) -> b f x y", x= 2, y =2)     ## Shape: b f 4 2
+            ankles = F.pad(input=ankles, pad=(2, 2, 2, 2), mode='constant', value=0) ## Shape: b f 6 6
+            ankles = ankles.unsqueeze(1)                                       ## Shape: b 1 f 6 6
+
+            torso_embed = self.torso_conv(torso)
+            elbows_embed = self.elbows_conv(elbows)
+            wrists_embed = self.wrists_conv(wrists)
+            knees_embed = self.knees_conv(knees)
+            ankles_embed = self.ankles_conv(ankles)
+
+            # print(torso_embed.shape)
+            # print(elbows_embed.shape)
+
+            torso_embed = torch.flatten(torso_embed, start_dim=2)
+            elbows_embed = torch.flatten(elbows_embed, start_dim=2)
+            wrists_embed = torch.flatten(wrists_embed, start_dim=2)
+            knees_embed = torch.flatten(knees_embed, start_dim=2)
+            ankles_embed = torch.flatten(ankles_embed, start_dim=2)
+
+            ## CONCAT THE RESULTS OF CONVOLUTION (N x 32 dimensional)
+            torso_embed = rearrange(torso_embed, "b e n -> b (n e)")
+            elbows_embed = rearrange(elbows_embed, "b e n -> b (n e)")
+            wrists_embed = rearrange(wrists_embed, "b e n -> b (n e)")
+            knees_embed = rearrange(knees_embed, "b e n -> b (n e)")
+            ankles_embed = rearrange(ankles_embed, "b e n -> b (n e)")
 
             # print(torso_embed.shape)
             # print(elbows_embed.shape)

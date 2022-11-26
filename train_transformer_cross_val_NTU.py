@@ -31,7 +31,7 @@ import argparse
 
 
 from trajectory import Trajectory, TrajectoryDataset, extract_fixed_sized_segments, split_into_train_and_test, remove_short_trajectories, get_categories, get_UTK_categories, get_NTU_categories
-from transformer import TubeletTemporalPart_concat_chan_1_Transformer, TubeletTemporalTransformer, TubeletTemporalPart_mean_chan_1_Transformer, TemporalTransformer_4, TemporalTransformer_3, TemporalTransformer_2, BodyPartTransformer, SpatialTemporalTransformer, TemporalTransformer, Block, Attention, Mlp
+from transformer import TubeletTemporalPart_concat_chan_1_Transformer, TubeletTemporalTransformer, TubeletTemporalPart_mean_chan_1_Transformer, TubeletTemporalPart_mean_chan_2_Transformer, TubeletTemporalPart_concat_chan_2_Transformer, TemporalTransformer_4, TemporalTransformer_3, TemporalTransformer_2, BodyPartTransformer, SpatialTemporalTransformer, TemporalTransformer, Block, Attention, Mlp
 from utils import print_statistics, SetupLogger, evaluate_all, evaluate_category, conv_to_float, SetupFolders, train_acc
 
 # logger.info("Reading args")
@@ -325,6 +325,12 @@ def train_model(embed_dim, epochs):
         elif cfg['MODEL']['MODEL_TYPE'] == "ttpcc1":
             kernel = tuple(map(int, cfg['TUBELET']['KERNEL'].split(',')))
             model = TubeletTemporalPart_concat_chan_1_Transformer(dataset=dataset, embed_dim=embed_dim, num_frames=segment_length, num_classes=num_classes, num_joints=num_joints, in_chans=in_chans, kernel=kernel, mlp_ratio=2., qkv_bias=True, qk_scale=None, dropout=0.1)
+        elif cfg['MODEL']['MODEL_TYPE'] == "ttpmc2":
+            kernel = tuple(map(int, cfg['TUBELET']['KERNEL'].split(',')))
+            model = TubeletTemporalPart_mean_chan_2_Transformer(dataset=dataset, embed_dim=embed_dim, num_frames=segment_length, num_classes=num_classes, num_joints=num_joints, in_chans=in_chans, kernel=kernel, mlp_ratio=2., qkv_bias=True, qk_scale=None, dropout=0.1)
+        elif cfg['MODEL']['MODEL_TYPE'] == "ttpcc2":
+            kernel = tuple(map(int, cfg['TUBELET']['KERNEL'].split(',')))
+            model = TubeletTemporalPart_concat_chan_2_Transformer(dataset=dataset, embed_dim=embed_dim, num_frames=segment_length, num_classes=num_classes, num_joints=num_joints, in_chans=in_chans, kernel=kernel, mlp_ratio=2., qkv_bias=True, qk_scale=None, dropout=0.1)
         
         else:
             raise Exception('model_type is missing, must be temporal, temporal_2, temporal_3, temporal_4, spatial-temporal or parts')

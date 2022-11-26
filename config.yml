@@ -1,14 +1,14 @@
 META:
   # NAME : tubelet_part_transformer_1 #check batch size
   # NAME : HRC_tubelet_temporal_1 #check batch size
-  NAME : HRC_ttpcc1
+  NAME : NTU_2D_ttpmc1
 
 MODEL:
-  MODEL_TYPE : ttpcc1   #type of model to train, ttpmc1, ttpcc1, tubelet_temporal, temporal, temporal_2, temporal_3, temporal_4, spatial-temporal or parts
-  EMBED_DIM : 32           #embedding dimension used by the model
+  MODEL_TYPE : ttpmc1   #type of model to train, ttpmc1, ttpcc1, ttpmc2, ttpcc2, tubelet_temporal, temporal, temporal_2, temporal_3, temporal_4, spatial-temporal or parts
+  EMBED_DIM : 256           #embedding dimension used by the model
   SEGMENT_LEN : 24          #length of sliding window
   DEBUG : FALSE              #load subset of trajectories in debug mode
-  DATASET : HRC          #dataset used HR-Crime/UTK/NTU_2D/NTU_3D   
+  DATASET : NTU_2D          #dataset used HR-Crime/UTK/NTU_2D/NTU_3D   
 
 DECOMPOSED:
   ENABLE: FALSE                #whether to use globally and locally decomposed trajectories

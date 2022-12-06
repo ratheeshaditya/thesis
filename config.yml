@@ -1,12 +1,12 @@
 META:
   # NAME : tubelet_part_transformer_1 #check batch size
   # NAME : HRC_tubelet_temporal_1 #check batch size
-  NAME : NTU_2D_ttpmc1
+  NAME : NTU_ttspcc2_233_60frames
 
 MODEL:
-  MODEL_TYPE : ttpmc1   #type of model to train, ttpmc1, ttpcc1, ttpmc2, ttpcc2, tubelet_temporal, temporal, temporal_2, temporal_3, temporal_4, spatial-temporal or parts
-  EMBED_DIM : 256           #embedding dimension used by the model
-  SEGMENT_LEN : 24          #length of sliding window
+  MODEL_TYPE : ttspcc2   #type of model to train, ttspcc2, ttpmc1, ttpcc1, ttpmc2, ttpcc2, tubelet_temporal, temporal, temporal_2, temporal_3, temporal_4, spatial-temporal or parts
+  EMBED_DIM : 32           #embedding dimension used by the model
+  SEGMENT_LEN : 60          #length of sliding window
   DEBUG : FALSE              #load subset of trajectories in debug mode
   DATASET : NTU_2D          #dataset used HR-Crime/UTK/NTU_2D/NTU_3D   
 
@@ -16,7 +16,9 @@ DECOMPOSED:
 
 TUBELET:                    #whether to use tubelet embeddings or not
   ENABLE: TRUE            
-  KERNEL: 5,2,2            #Kernel+Stride for tubelet embeddings
+  KERNEL: 2,3,3            #Kernel+Stride for tubelet embeddings
+  STRIDE: 2,3,3
+  PAD_MODE: constant      #Could be constant, replicate, reflect
 
 TRAINING:
   EPOCHS : 100              #maximum number of epochs during training

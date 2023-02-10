@@ -1,3 +1,6 @@
+'''
+Config for visualization
+'''
 META:
   NAME : NTU_ttspcc2_833        #folder name to store trained model and results
 
@@ -20,10 +23,10 @@ TUBELET:                    #whether to use tubelet embeddings or not
 
 VIS:
   TYPE : SKEL # ATTN/SKEL
-  # TEST_SAMPLE : Abuse050_0034
+  # TEST_SAMPLE : Abuse050_0034 
   # TEST_INDEX : 1000
   # TEST_INDEX : 1649
   # TEST_SAMPLE : S032C002P043R001A097_0
   # TEST_INDEX : 20
-  TEST_SAMPLE : S001C003P005R002A059_0
-  TEST_INDEX : 20
+  TEST_SAMPLE : S001C003P005R002A059_0 # Test video
+  TEST_INDEX : 20  # Test video segment index

@@ -11,15 +11,28 @@ from utils import SetupLogger
 
 logger = SetupLogger('logger')
 
+'''
+Specify the dimensions, datasets below
+'''
+
 # dimension = '2D'
 dimension = '3D'
 
 # dataset = "HRC"
 dataset = "NTU"
 
+'''
+Specify if Global Single, Global Repeated or normal input representation
+'''
+
 # decomposed = "decom_"
 decomposed = "decom_GR_"
 # decomposed = ""
+
+
+'''
+Load the path of the corresponding data
+'''
 
 if dataset == "NTU":
   if decomposed:
@@ -41,6 +54,11 @@ elif dataset == "HRC":
     pass
 
 def load_trajectories(trajectories_path, classes):
+  '''
+  Function to load the trajectories from CSV format and initialize them using a Trajectory class and 
+  then store in a dictionary format, with the trajectory_id as the key 
+  '''
+
   trajectories = {}
   categories = os.listdir(trajectories_path)
 
@@ -94,7 +112,7 @@ logger.info("categories: %s", str(all_categories))
 trajectories = load_trajectories(path, all_categories)
 logger.info('Loaded %d trajectories.', len(trajectories))
 
-#save trajectories
+# Save the trajectories in pickle format 
 if dataset == "NTU":
   PIK = "/home/s2435462/HRC/data/NTU_"+dimension+"/trajectories_NTU_"+decomposed+dimension+".dat"
 elif dataset == "HRC":
@@ -103,16 +121,16 @@ elif dataset == "HRC":
 with open(PIK, "wb") as f:
   pickle.dump(trajectories, f)
 
-#remove short trajectories
+# Remove trajectories shorter than the input length
 trajectories = remove_short_trajectories(trajectories, input_length=12, input_gap=0, pred_length=12)
 
 logger.info('Removed short trajectories. Number of trajectories left: %d.', len(trajectories))
 
-#split trajectories into train and test
+# Split trajectories into train and test sets
 trajectories_train, trajectories_test = split_into_train_and_test(trajectories, train_ratio=0.8, seed=42)
 logger.info('%d train trajectories and %d test trajectories', len(trajectories_train), len(trajectories_test))
 
-#save trajectories for train and test
+# Save the train and test sets in pickle format
 if dataset == "NTU":
   PIK_train = "/home/s2435462/HRC/data/NTU_"+dimension+"/trajectories_train_NTU_"+decomposed+ dimension +".dat"
   PIK_test = "/home/s2435462/HRC/data/NTU_"+dimension+"/trajectories_test_NTU_"+decomposed+ dimension +".dat"

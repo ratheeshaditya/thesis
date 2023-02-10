@@ -1,3 +1,7 @@
+'''
+Config file for debugging
+'''
+
 META:
   NAME : test_NTU_3D_ttspcc2_833_2        #folder name to store trained model and results
 

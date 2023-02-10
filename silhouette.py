@@ -1,3 +1,8 @@
+'''
+Script to plot silhouette plots
+Input data is tsne.pkl which are the embeddings. The script takes 500 embeddings and plots them
+'''
+
 import pickle
 import numpy as np
 

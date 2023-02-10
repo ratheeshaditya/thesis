@@ -1,3 +1,7 @@
+'''
+Script to decompose the skeletal trajectories to global and local components
+'''
+
 from itertools import count
 import os
 import pandas as pd

@@ -1,3 +1,7 @@
+'''
+Config file for calculating complexity
+'''
+
 META:
   # NAME : tubelet_part_transformer_1 #check batch size
   # NAME : HRC_tubelet_temporal_1 #check batch size

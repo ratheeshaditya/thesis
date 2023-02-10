@@ -1,3 +1,12 @@
+'''
+VISUALIZING SCRIPT
+'''
+
+
+'''
+Import packages
+'''
+
 import torch
 import torch.nn.functional as F
 
@@ -213,12 +222,6 @@ print('number_of_segments', number_of_segments)
 
 test_dataloader = torch.utils.data.DataLoader(test, batch_size = number_of_segments, shuffle=False, collate_fn=collator_for_lists)
 
-# traj_ids_test, traj_videos_test, traj_persons_test, traj_frames_test, traj_categories_test, X_test = extract_fixed_sized_segments(dataset, test_sample_trajectory, input_length=segment_length)
-
-#Evaluate test sample
-# test_dataloader = torch.utils.data.DataLoader([ [traj_categories_test[i], traj_videos_test[i], traj_persons_test[i], traj_frames_test[i], X_test[i] ] for i in range(len(traj_ids_test))], shuffle=False, batch_size=number_of_segments) 
-# labels, videos, persons, frames, categories, data = next(iter(test_dataloader)) #test_dataloader consists of only 1 batch
-
 batch = next(iter(test_dataloader))
 
 ids, videos, persons, frames, data, categories = batch['id'], batch['videos'], batch['persons'], batch['frames'], batch['coordinates'], batch['categories']
@@ -231,24 +234,14 @@ labels = torch.tensor([y[0] for y in categories]).to(device)
 frames = frames.to(device)
 data = data.to(device)
 
-# index = torch.tensor([0]).to(device)
-# labels = labels.index_select(1, index)
-# labels = torch.squeeze(labels)
-# #print('videos',videos)
-# videos = videos.index_select(1, index)
-# videos = torch.squeeze(videos)
-# persons = persons.index_select(1, index)
-# persons = torch.squeeze(persons)
 print('labels length:', len(labels))
 print('videos:', videos)
 print(frames)
 print('frames at index %d: %s' % (test_index, frames[test_index]))
 
 outputs = model(data)
-#print('outputs', outputs)
 
-# log_likelihoods = F.log_softmax(outputs, dim=1) #nn.CrossEntropyLoss also uses the log_softmax
-# the class with the highest log-likelihood is what we choose as prediction
+
 _, predictions = torch.max(outputs, dim=1)
 print('true label', labels[test_index])
 print('prediction', predictions[test_index])

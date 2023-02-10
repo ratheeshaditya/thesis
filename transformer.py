@@ -7,6 +7,9 @@ import torch.nn.functional as F
 
 
 def get_average_body_parts(num_joints, x):
+    '''
+    Returns the midpoint of different body parts
+    '''
     if num_joints == 25:
         dim = int(x.size(2)/25)
         x_torso_1 = x[:, :, 0:5*dim]
@@ -189,6 +192,9 @@ def get_average_body_parts(num_joints, x):
 
 
 def get_keypoint(skeleton, position, dim):
+    '''
+    Given a keypoint position, returns it from the list of keypoints
+    '''
     # device = torch.device('cuda')# if torch.cuda.is_available() else 'cpu')
     # part = torch.empty(0)
     # part.to(device)
@@ -792,6 +798,9 @@ class TemporalTransformer_4(nn.Module):
         
 
 class SpatialTemporalTransformer(nn.Module):
+    '''
+    ST-Tran Transformer
+    '''
     def __init__(self, num_classes=13, num_frames=12, num_joints=17, in_chans=2, embed_dim_ratio=8, depth=4,
                  num_heads=8, mlp_ratio=2., qkv_bias=True, qk_scale=None,
                  drop_rate=0., attn_drop_rate=0., dropout=0.2):
@@ -1002,6 +1011,9 @@ class SpatialTemporalTransformer(nn.Module):
 
 
 class BodyPartTransformer(nn.Module):
+    '''
+    SBPT-Tran Transformer
+    '''
     def __init__(self, dataset=None, num_classes=13, num_frames=12, num_joints=17, in_chans=2, embed_dim_ratio=32, depth=4,
                  num_heads=8, mlp_ratio=2., qkv_bias=True, qk_scale=None,
                  drop_rate=0., attn_drop_rate=0., dropout=0.2):
@@ -1376,6 +1388,9 @@ class BodyPartTransformer(nn.Module):
         return x
   
 class TubeletTemporalTransformer(nn.Module):
+    '''
+    TTubeFormer Transformer
+    '''
     def __init__(self, dataset=None, num_classes=13, num_frames=12, num_joints=17, in_chans=2, embed_dim=64, kernel=None, stride=None, depth=4,
                  num_heads=8, mlp_ratio=2., qkv_bias=True, qk_scale=None,
                  drop_rate=0., attn_drop_rate=0., dropout=0.2):
@@ -1490,6 +1505,9 @@ class TubeletTemporalTransformer(nn.Module):
         return x
 
 class TubeletTemporalPart_mean_chan_1_Transformer(nn.Module):
+    '''
+    BPFormer-V1
+    '''
     def __init__(self, dataset=None, num_classes=13, num_frames=12, num_joints=17, in_chans=2, embed_dim=64, kernel=None, stride=None, depth=4,
                  num_heads=8, mlp_ratio=2., qkv_bias=True, qk_scale=None,
                  drop_rate=0., attn_drop_rate=0., dropout=0.2):
@@ -1719,6 +1737,9 @@ class TubeletTemporalPart_mean_chan_1_Transformer(nn.Module):
         return x
 
 class TubeletTemporalPart_concat_chan_1_Transformer(nn.Module):
+    '''
+    BPFormer-V2
+    '''
     ## Instead of mean, concatenate with a smaller dimension. 
     ## Also means you have to pad to make same dimension as largest input square. 
     ## Otherwise, the embeddings will have different lengths after concatenating.
@@ -1958,6 +1979,9 @@ class TubeletTemporalPart_concat_chan_1_Transformer(nn.Module):
         return x
 
 class TubeletTemporalPart_mean_chan_2_Transformer(nn.Module):
+    '''
+    BPFormer-V3
+    '''
     def __init__(self, dataset=None, num_classes=13, num_frames=12, num_joints=17, in_chans=2, embed_dim=64, kernel=None, stride=None, depth=4,
                  num_heads=8, mlp_ratio=2., qkv_bias=True, qk_scale=None,
                  drop_rate=0., attn_drop_rate=0., dropout=0.2):
@@ -2195,6 +2219,9 @@ class TubeletTemporalPart_mean_chan_2_Transformer(nn.Module):
         return x
 
 class TubeletTemporalPart_concat_chan_2_Transformer(nn.Module):
+    '''
+    BPFormer-V4
+    '''
     ## Instead of mean, concatenate with a smaller dimension. 
     ## Also means you have to pad to make same dimension as largest input square. 
     ## Otherwise, the embeddings will have different lengths after concatenating.
@@ -2438,6 +2465,9 @@ class TubeletTemporalPart_concat_chan_2_Transformer(nn.Module):
 
 
 class TubeletTemporalSpatialPart_concat_chan_2_Transformer(nn.Module):
+    '''
+    BPTubeFormer Transformer
+    '''
     def __init__(self, dataset=None, num_classes=13, num_frames=12, num_joints=17, in_chans=2, embed_dim_ratio=64, kernel=None, stride=None, depth=4,
                  num_heads=8, mlp_ratio=2., qkv_bias=True, qk_scale=None,
                  drop_rate=0., attn_drop_rate=0., dropout=0.2, pad_mode='constant'):

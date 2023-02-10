@@ -1,5 +1,11 @@
 # %%
+'''
+Script to obtain embeddings for T-SNE and Silhouette plots
+'''
+
 import torch
+
+
 import torch.nn as nn
 from einops import rearrange, repeat
 import torch.nn.functional as F

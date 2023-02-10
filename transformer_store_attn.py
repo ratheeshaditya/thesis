@@ -1,5 +1,12 @@
  #!/bin/env python
 
+
+'''
+This script defines the transformer classes with a minor difference. It helps to store the attention scores for later visualization.
+For example, the line "self.attn_scores = attn" stores the attention score after doing Q x K(transpose). This is the only difference with the transformer.py script
+
+'''
+
 import torch
 import torch.nn as nn
 from einops import rearrange, repeat

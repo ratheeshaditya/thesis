@@ -4,7 +4,9 @@
 
 The NTU Dataset contains video data as well as skeleton data.
 ### NTU Videos
-The videos are stored in `/home/s2435462/HRC/NTU/Videos`
+The videos are stored in `/home/s2435462/HRC/NTU/Videos/nturgb+d`.
+The folder `/home/s2435462/HRC/NTU/Videos/zips` contains the script files to download the zip files and to unzip them.
+
 The data includes both NTURGB-D and NTURGB-D-120 datasets.
 In total there are 114480 videos.
 One example file name is `S018C001P042R002A120_rgb.avi`. There are 5 components in the filename.
@@ -77,12 +79,18 @@ So the each line corresponds to one frame in the video and the first value is th
 
 In total, we have 143162 trajectory files.
 
+### Decomposed Trajectories
+
+In the `/home/s2435462/HRC/NTU/skeleton/decompose_trajectory_csv_2D` and `/home/s2435462/HRC/NTU/skeleton/decompose_trajectory_csv_3D` folders, we have the Global Single input representation where after the frame number, we have the global keypoint.
+
+In the `/home/s2435462/HRC/NTU/skeleton/decompose_GR_trajectory_csv_2D` and `/home/s2435462/HRC/NTU/skeleton/decompose_GR_trajectory_csv_3D` folders, we have the Global repeated input representation where for each local component, we also have the global component.
+
 ## PYTHON SCRIPTS
 
 ### `load_trajectories_NTU.py`
 
 
-This script is used to load the trajectory CSV files into Trajectory classes, store them in a dict format and pickle save them in `.dat` format. You can set the dimension as either `2D` or `3D` and depending on this, the corresponding folder would be loaded. The data is saved in `trajectories_NTU_2D.dat` file in `/home/s2435462/HRC/data/`.
+This script is used to load the trajectory CSV files into Trajectory classes, store them in a dict format and pickle save them in `.dat` format. You can set the dimension as either `2D` or `3D` and depending on this, the corresponding folder would be loaded. The data is saved in `trajectories_NTU_2D.dat` file in `/home/s2435462/HRC/data/`. Similarly the global single and global repeated representations in `trajectories_NTU_decom_2D.dat` and `trajectories_NTU_decom_GR_2D.dat`.
 
 The dictionary looks like this:
 
@@ -95,9 +103,7 @@ The dictionary looks like this:
 }
 ```
 
-### `prepare_trajectories_NTU.py`
-
-This script is to remove short trajectories and prepare them into train and test datasets. It loads the pickled .dat files and splits them into 80% and 20%.
+The script also removes short trajectories and prepare them into train and test datasets. It loads the pickled .dat files and splits them into 80% and 20%.
 
 These are them saved as `trajectories_train_NTU_2D.dat` and `trajectories_test_NTU_2D.dat` in `/home/s2435462/HRC/data/`
 
@@ -106,7 +112,7 @@ We now have the test and train datasets saved!!
 
 ### `utils.py`
 
-This file stores some utility functions like SetupLogger, printstatistics, etc..
+This file stores the utility functions like `SetupFolders`, `SetupLogger`, `printstatistics`, `evaluate_all` etc..
 
 ### `train_transformer_cross_val_NTU.py`
 
@@ -114,7 +120,7 @@ This is the main training file.
 
 It starts by setting up a logger and reading all arguments.
 
-The train and test trajectories are then loaded from the output of `prepare_trajectories.py`.
+The train and test trajectories are then loaded from the output of `load_trajectories_NTU.py`.
 
 Some short trajectories are then removed.
 
@@ -136,7 +142,11 @@ If the patience is exceeded or the final epoch is done, the training is stopped.
 
 ### `transformer.py`
 
-# RESULTS
+## TODO
+
+* In the `transformer.py` file, the definitions of different transformer models could be modified to incorporate the ability to store the attention scores. The  coe to store attention score is used in `code/transformer_store_attn.py`.  
+
+<!-- # RESULTS
 ## Kayleigh
 
 | **Dataset** |  **Model** | **c** | **f** | **BA** |
@@ -326,4 +336,4 @@ temporal_4 : /home/s2435462/HRC/results/NTU_2D/temporal_4_c32_b1000/logs/logs.lo
 
 spatio-temporal : /home/s2435462/HRC/results/NTU_2D/spatial-temporal_3_c32_b1000_6/logs/logs.log
 
-parts : /home/s2435462/HRC/results/NTU_2D/parts_3_c32_b100_8/logs/logs.log
+parts : /home/s2435462/HRC/results/NTU_2D/parts_3_c32_b100_8/logs/logs.log -->

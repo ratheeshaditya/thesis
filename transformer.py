@@ -1151,7 +1151,11 @@ class BodyPartTransformer(nn.Module):
         #print('new x.shape', x.shape)
 
         x = self.Spatial_patch_to_embedding(x)
-        x = self.pos_drop(x + self.Elbow_Knee_pos_embed)
+
+        if "NTU" in self.dataset:
+            x = self.pos_drop(x + self.Elbow_Knee_pos_embed)
+        else:
+            x = self.pos_drop(x + self.Other_pos_embed)
 
         
         for blk in self.Elbow_blocks:
@@ -1172,7 +1176,11 @@ class BodyPartTransformer(nn.Module):
         #print('new x.shape', x.shape)
 
         x = self.Spatial_patch_to_embedding(x)
-        x = self.pos_drop(x + self.Wrist_pos_embed)
+
+        if "NTU" in self.dataset:
+            x = self.pos_drop(x + self.Wrist_pos_embed)
+        else:
+            x = self.pos_drop(x + self.Other_pos_embed)
 
         for blk in self.Wrist_blocks:
             x = blk(x)
@@ -1192,7 +1200,10 @@ class BodyPartTransformer(nn.Module):
         #print('new x.shape', x.shape)
 
         x = self.Spatial_patch_to_embedding(x)
-        x = self.pos_drop(x + self.Elbow_Knee_pos_embed)
+        if "NTU" in self.dataset:
+            x = self.pos_drop(x + self.Elbow_Knee_pos_embed)
+        else:
+            x = self.pos_drop(x + self.Other_pos_embed)
 
         for blk in self.Knee_blocks:
             x = blk(x)
@@ -1212,7 +1223,11 @@ class BodyPartTransformer(nn.Module):
         #print('new x.shape', x.shape)
 
         x = self.Spatial_patch_to_embedding(x)
-        x = self.pos_drop(x + self.Ankle_pos_embed)
+        
+        if "NTU" in self.dataset:
+            x = self.pos_drop(x + self.Ankle_pos_embed)
+        else:
+            x = self.pos_drop(x + self.Other_pos_embed)
 
         for blk in self.Ankle_blocks:
             x = blk(x)
@@ -1277,7 +1292,7 @@ class BodyPartTransformer(nn.Module):
             x_torso_2 = x[:, :, 11:13, :] #joints 11,12 (hips)
             x_torso = torch.cat((x_torso_1, x_torso_2), dim=2)
             x_elbow = x[:, :, 7:9, :]
-            x_wirst = x[:, :, 9:11, :]
+            x_wrist = x[:, :, 9:11, :]
             x_knee = x[:, :, 13:15, :]
             x_ankle = x[:, :, 15:17, :]
         elif "NTU" in self.dataset:

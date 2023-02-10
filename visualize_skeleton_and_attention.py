@@ -108,49 +108,69 @@ def get_colors():
             ] #colors in BGR 
     return colors
 
-def draw_body_parts(frame, keypoints, dotted=False, attn_weight=None):
+def draw_body_parts(frame, keypoints, dotted=False, attn_weight=None, dataset='HRC'):
     
     colors = get_colors() 
     
-    #print('keypoints type', type(keypoints))
-    #print('\nkeypoints shape', keypoints.shape)
-    #print('keypoints', keypoints)
-    kp_torso_1 = keypoints[0:7] #joints 0,1,2,3,4,5,6 (head and shoulders) 
-    kp_torso_2 = keypoints[11:13] #joints 11,12 (hips)
-    
-    #print('kp_torso_1', kp_torso_1)
-    #print('kp_torso_2', kp_torso_2)
-    
-    kp_torso = np.concatenate((kp_torso_1, kp_torso_2), axis=0)
-    #print('kp_torso type', type(kp_torso))
-    #print('kp_torso', kp_torso)
-    
-    
-    kp_elbow = keypoints[7:9]
-    kp_wrist = keypoints[9:11]
-    kp_knee = keypoints[13:15]
-    kp_ankle = keypoints[15:17]
-    
-    '''
-    print('kp_elbow', kp_elbow)
-    print('kp_wrist', kp_wrist)
-    print('kp_knee', kp_knee)
-    print('kp_ankle', kp_ankle)
-    '''
-    
+    if dataset == 'HRC':
+        kp_torso_1 = keypoints[0:7] #joints 0,1,2,3,4,5,6 (head and shoulders) 
+        kp_torso_2 = keypoints[11:13] #joints 11,12 (hips)
+        
+        kp_torso = np.concatenate((kp_torso_1, kp_torso_2), axis=0)
+        
+        
+        kp_elbow = keypoints[7:9]
+        kp_wrist = keypoints[9:11]
+        kp_knee = keypoints[13:15]
+        kp_ankle = keypoints[15:17]
+        
+    else:
+        kp_torso_1 = keypoints[0:5]
+        kp_torso_2 = np.expand_dims(keypoints[8], axis=0)
+        kp_torso_3 = np.expand_dims(keypoints[12], axis=0)
+        kp_torso_4 = np.expand_dims(keypoints[16], axis=0)
+        kp_torso_5 = np.expand_dims(keypoints[20], axis=0)
+
+        print(kp_torso_1)
+        print(kp_torso_2)
+
+        kp_torso = np.concatenate((kp_torso_1, kp_torso_2, kp_torso_3, kp_torso_4, kp_torso_5), axis=0)
+
+        kp_wrist_1 = np.expand_dims(keypoints[6], axis=0)
+        kp_wrist_2 = np.expand_dims(keypoints[7], axis=0)
+        kp_wrist_3 = np.expand_dims(keypoints[10], axis=0)
+        kp_wrist_4 = np.expand_dims(keypoints[11], axis=0)
+        kp_wrist_5 = np.expand_dims(keypoints[21], axis=0)
+        kp_wrist_6 = np.expand_dims(keypoints[22], axis=0)
+        kp_wrist_7 = np.expand_dims(keypoints[23], axis=0)
+        kp_wrist_8 = np.expand_dims(keypoints[24], axis=0)
+
+        kp_wrist = np.concatenate((kp_wrist_1,kp_wrist_2, kp_wrist_3, kp_wrist_4, kp_wrist_5, kp_wrist_6, kp_wrist_7, kp_wrist_8), axis=0)
+
+        kp_elbow_1 = np.expand_dims(keypoints[9], axis=0)
+        kp_elbow_2 = np.expand_dims(keypoints[5], axis=0)
+
+        kp_elbow = np.concatenate((kp_elbow_1,kp_elbow_2), axis=0)
+
+        kp_knee_1 = np.expand_dims(keypoints[17], axis=0)
+        kp_knee_2 = np.expand_dims(keypoints[13], axis=0)
+
+        kp_knee = np.concatenate((kp_knee_1,kp_knee_2), axis=0)
+
+        kp_ankle_1 = np.expand_dims(keypoints[18], axis=0)
+        kp_ankle_2 = np.expand_dims(keypoints[19], axis=0)
+        kp_ankle_3 = np.expand_dims(keypoints[14], axis=0)
+        kp_ankle_4 = np.expand_dims(keypoints[15], axis=0)
+
+        kp_ankle = np.concatenate((kp_ankle_1,kp_ankle_2, kp_ankle_3, kp_ankle_4), axis=0)
+
     kp_torso = np.mean(kp_torso, axis=0)
     kp_elbow = np.mean(kp_elbow, axis=0)
     kp_wrist = np.mean(kp_wrist, axis=0)
     kp_knee = np.mean(kp_knee, axis=0)
     kp_ankle = np.mean(kp_ankle, axis=0)
-    
-    '''
-    print('kp_torso', kp_torso)
-    print('kp_elbow', kp_elbow)
-    print('kp_wrist', kp_wrist)
-    print('kp_knee', kp_knee)
-    print('kp_ankle', kp_ankle)
-    '''
+
+
     
     mean_keypoints = [kp_torso, kp_elbow, kp_wrist, kp_knee, kp_ankle]
     
@@ -160,10 +180,11 @@ def draw_body_parts(frame, keypoints, dotted=False, attn_weight=None):
     radius = 5
     
     for index, (x, y) in enumerate(mean_keypoints):
-        #print('(x, y)', (x, y))
+        print('(x, y)', (x, y))
         if 0 in (x, y):
             continue
         center = int(round(x)), int(round(y))
+        radius = int(10*attn_weight[index])
         cv.circle(overlay, center=center, radius=radius, color=colors[index], thickness=-1)
         cv.circle(frame, center=center, radius=radius, color=colors[index], thickness=1)
    
@@ -173,25 +194,48 @@ def draw_body_parts(frame, keypoints, dotted=False, attn_weight=None):
         alpha = 1 #Opaque
 
     #print('alpha',alpha)
+    alpha = 1
     new_frame = cv.addWeighted(frame, 1-alpha, overlay, alpha, 0)
 
     return new_frame
+    cv.imwrite('/home/s2435462/HRC/data/test_frames/test.jpg', img=new_frame)
+    # return frame
 
 
 
-def draw_skeleton(frame, keypoints, colour, dotted=False, attn_weight=None, spatial_attn_weight=None, draw_connections=False, draw_grouped_joints=False):
+def draw_skeleton(frame, keypoints, colour, dotted=False, attn_weight=None, spatial_attn_weight=None, draw_connections=False, draw_grouped_joints=False, dataset='HRC', model_type=None):
     
     #print('\nDraw skeleton')
-    
-    connections = [(0, 1), (0, 2), (1, 3), (2, 4),
+    if dataset == 'HRC':
+        connections = [(0, 1), (0, 2), (1, 3), (2, 4),
                    (5, 7), (7, 9), (6, 8), (8, 10),
                    (11, 13), (13, 15), (12, 14), (14, 16),
                    (3, 5), (4, 6), (5, 6), (5, 11), (6, 12), (11, 12)]
-    
+    else:
+        connections = [(0, 1), (0, 12), (0, 16), 
+                        (1, 20), 
+                        (2, 3), (2, 20),
+                        (4, 5), (4, 20),
+                        (5, 6),
+                        (6, 7),
+                        (7, 21), (7, 22),
+                        (8, 20), (8, 9),
+                        (9, 10),
+                        (10, 11),
+                        (11, 23), (11, 24),
+                        (12, 13),
+                        (13, 14),
+                        (14, 15),
+                        (16, 17),
+                        (17, 18),
+                        (18, 19)]
+
     overlay = frame.copy()
     
     colors = get_colors()
     #print('keypoints', keypoints)
+
+
     
     if spatial_attn_weight is not None:
         
@@ -224,16 +268,28 @@ def draw_skeleton(frame, keypoints, colour, dotted=False, attn_weight=None, spat
         
         if draw_grouped_joints:
             #print('index', index)
-            if index in [0,1,2,3,4,5,6,11,12]: #torso
-                color = colors[0]
-            if index in [7,8]: #elbows
-                color = colors[1]
-            if index in [9,10]: #wrists
-                color = colors[2]  
-            if index in [13,14]: #knees
-                color = colors[3]  
-            if index in [15,16]: #ankles
-                color = colors[4]  
+            if dataset == 'HRC':
+                if index in [0,1,2,3,4,5,6,11,12]: #torso
+                    color = colors[0]
+                if index in [7,8]: #elbows
+                    color = colors[1]
+                if index in [9,10]: #wrists
+                    color = colors[2]  
+                if index in [13,14]: #knees
+                    color = colors[3]  
+                if index in [15,16]: #ankles
+                    color = colors[4]  
+            else:
+                if index in [0,1,2,3,4,8,12,16,20]: #torso
+                    color = colors[0]
+                if index in [5,9]: #elbows
+                    color = colors[1]
+                if index in [6,7,10,11,21,22,23,24]: #wrists
+                    color = colors[2]  
+                if index in [13,17]: #knees
+                    color = colors[3]  
+                if index in [14,15,18,19]: #ankles
+                    color = colors[4]
             #print('color', color)
             cv.circle(overlay, center=center, radius=radius, color=color, thickness=-1)
             #cv.circle(frame, center=center, radius=radius, color=color, thickness=1)
@@ -314,7 +370,7 @@ def draw_rect(img, pt1, pt2, color, thickness=1, style='dotted'):
 
 #def render_trajectories_skeletons(args):
 #def render_trajectories_skeletons(model_type, test_video, person_id=None, draw_trajectory_segment=False, frames=None, attn_scores=None, spatial_attn_scores=None, spatial_body_part_attn_scores=None):
-def render_trajectories_skeletons(model_type, test_video, person_id=None, draw_trajectory_segment=False, frames=None, attn_scores=None, spatial_attn_scores=None):
+def render_trajectories_skeletons(model_type, test_video, person_id=None, draw_trajectory_segment=False, frames=None, attn_scores=None, spatial_attn_scores=None, dataset=None):
     '''
     frames_path = args.frames
     trajectories_path = args.trajectories
@@ -328,16 +384,22 @@ def render_trajectories_skeletons(model_type, test_video, person_id=None, draw_t
 
     
     #test_video = 'Robbery101'
-    test_category = re.split('(\d+)', test_video)[0]
+    if dataset=='HRC':
+        test_category = re.split('(\d+)', test_video)[0]
+    else:
+        test_category = test_video[-4:]
 
     print('test_category', test_category)
     print('frames', frames)
     #print('attn_scores', attn_scores)
 
-    path = '/data/s3447707/MasterThesis/'
+    path = '/home/s2435462/HRC/data'
 
     frames_path = os.path.join(path, 'test_frames', test_video)
-    trajectories_path = os.path.join('/data/s3447707/HR-Crime/Trajectories', test_category, test_video)
+    if dataset == 'HRC':
+        trajectories_path = os.path.join('/home/s2435462/HRC/HRC_files/dataverse_files/trajectories_all', test_category, test_video)
+    else:
+        trajectories_path = os.path.join('/home/s2435462/HRC/NTU/skeleton/trajectory_csv_2D', test_category, 'P005')
     #trajectories_path = '/content/gdrive/MyDrive/CAIP HR-Crime/HR-Crime/Trajectories/Robbery/Robbery101'
     draw_trajectories_skeleton = True
     draw_trajectories_bounding_box = False
@@ -369,17 +431,20 @@ def render_trajectories_skeletons(model_type, test_video, person_id=None, draw_t
     if (attn_scores is not None and specific_frames is None):
       raise ValueError('Must specify --frames to display --attn_weights')
     '''
+    
+    print('############specific_person_id', specific_person_id)
 
+    if type(specific_person_id) and specific_frames.any():
+        specific_start_frame = specific_frames[0]
+        specific_end_frame = specific_frames[-1]
+        write_dir = os.path.join(path, 'skeleton_visualizations_specific_person_specific_frames', model_type, test_video, test_video + '_' + 
+                                str(specific_person_id) + '_start_frame_' + str(specific_start_frame) + '_end_frame_' + str(specific_end_frame))
+        print('first')
+    elif type(specific_person_id):
+        write_dir = os.path.join(path, 'skeleton_visualizations_specific_person_specific_frames', model_type, test_video, test_video + '_' + str(specific_person_id))
+        print('second')
 
-    if specific_person_id and specific_frames.any():
-      specific_start_frame = specific_frames[0]
-      specific_end_frame = specific_frames[-1]
-      write_dir = os.path.join(path, 'skeleton_visualizations_specific_person_specific_frames', model_type, test_video, test_video + '_' + 
-                               str(specific_person_id) + '_start_frame_' + str(specific_start_frame) + '_end_frame_' + str(specific_end_frame))
-    elif specific_person_id:
-      write_dir = os.path.join(path, 'skeleton_visualizations_specific_person_specific_frames', model_type, test_video, test_video + '_' + str(specific_person_id))
-
-
+    # write_dir = 'sadfasfdsa'
     print('write_dir',write_dir)
     maybe_create_dir(write_dir)
 
@@ -395,7 +460,8 @@ def render_trajectories_skeletons(model_type, test_video, person_id=None, draw_t
                                    spatial_attn_scores,
                                    #spatial_body_part_attn_scores,
                                    draw_local_skeleton,
-                                   trajectories_colour)
+                                   trajectories_colour,
+                                   dataset=dataset)
     print('Visualisation successfully rendered to %s' % write_dir)
     
     if model_type in ['temporal_2', 'temporal_4']:
@@ -417,7 +483,8 @@ def _render_trajectories_skeletons(model_type,
                                    spatial_attn_scores=None,
                                    #spatial_body_part_attn_scores=None,
                                    draw_local_skeleton=False,
-                                   trajectories_colour=None):
+                                   trajectories_colour=None,
+                                   dataset = None):
     frames_names = os.listdir(frames_path)
     frames_names.sort(key=lambda f: int(re.sub('\D', '', f)))
     #print('frames_names', frames_names)
@@ -475,12 +542,19 @@ def _render_trajectories_skeletons(model_type,
     
     rendered_frames = {}
     if trajectories_path is not None:
-        trajectories_files_names = sorted(os.listdir(trajectories_path))  # 001.csv, 002.csv, ...
+        if dataset == 'HRC':
+            trajectories_files_names = sorted(os.listdir(trajectories_path))  # 001.csv, 002.csv, ...
+        else:
+            trajectories_files_names = ['S001C003P005R002A059_0.csv']
         #print(trajectories_files_names)
 
         
         for trajectory_file_name in trajectories_files_names:
-            person_id = int(trajectory_file_name.split('.')[0])
+            print('trajectory_file_name: ', trajectory_file_name)
+            if dataset == 'HRC':
+                person_id = int(trajectory_file_name.split('.')[0])
+            else:
+                person_id = int(trajectory_file_name[:-4].split('_')[1])
             #print('person_id',person_id)
             #print('specific_person_id',specific_person_id)
             if specific_person_id is not None and specific_person_id != person_id:
@@ -497,6 +571,8 @@ def _render_trajectories_skeletons(model_type,
             trajectory = np.loadtxt(os.path.join(trajectories_path, trajectory_file_name), delimiter=',', ndmin=2)
             trajectory_frames = trajectory[:, 0].astype(np.int32)
             trajectory_coordinates = trajectory[:, 1:]
+
+            print("trajectory_frames:", trajectory_frames)
 
             for frame_id, skeleton_coordinates in zip(trajectory_frames, trajectory_coordinates):
                 if frame_id >= max_frame_id:
@@ -523,18 +599,18 @@ def _render_trajectories_skeletons(model_type,
                         target_center = np.array([3 * width / 4, height / 2], dtype=np.float32)
                         displacement_vector = target_center - bb_center
                         frame = draw_skeleton(frame, keypoints=skeleton_coordinates.reshape(-1, 2) + displacement_vector,
-                                      colour=colour, dotted=False, attn_weight= attn_weights[frame_index])
+                                      colour=colour, dotted=False, attn_weight= attn_weights[frame_index], dataset= dataset)
                     else:
                         if model_type == 'temporal':
                             print('frame attn weight', attn_weights[frame_index])
-                            frame = draw_skeleton(frame, keypoints=skeleton_coordinates.reshape(-1, 2), colour=colour, dotted=False, attn_weight=attn_weights[frame_index], draw_connections=True)
+                            frame = draw_skeleton(frame, keypoints=skeleton_coordinates.reshape(-1, 2), colour=colour, dotted=False, attn_weight=attn_weights[frame_index], draw_connections=True, dataset= dataset)
                         elif model_type == 'temporal_2':
-                            frame = draw_skeleton(frame, keypoints=skeleton_coordinates.reshape(-1, 2), colour=colour, dotted=False)
+                            frame = draw_skeleton(frame, keypoints=skeleton_coordinates.reshape(-1, 2), colour=colour, dotted=False, dataset= dataset)
                         elif model_type == 'temporal_3':
                             print('frame attn weight', attn_weights[frame_index])
-                            frame = draw_body_parts(frame, keypoints=skeleton_coordinates.reshape(-1, 2), dotted=False, attn_weight=attn_weights[frame_index])
+                            frame = draw_body_parts(frame, keypoints=skeleton_coordinates.reshape(-1, 2), dotted=False, attn_weight=attn_weights[frame_index], dataset=dataset)
                         elif model_type == 'temporal_4':
-                            frame = draw_body_parts(frame, keypoints=skeleton_coordinates.reshape(-1, 2), dotted=False)
+                            frame = draw_body_parts(frame, keypoints=skeleton_coordinates.reshape(-1, 2), dotted=False, dataset=dataset)
                         elif model_type == 'spatial-temporal':
                             print('frame norm_scores', norm_scores[frame_index])
                             print('frame attn weight', attn_weights[frame_index])
@@ -545,7 +621,7 @@ def _render_trajectories_skeletons(model_type,
                             #                      spatial_attn_weight=spatial_attn_weights[frame_index,:], draw_connections=True)
                             frame = draw_skeleton(frame, keypoints=skeleton_coordinates.reshape(-1, 2),
                                                   colour=colour, attn_weight=attn_weights[frame_index],
-                                                  spatial_attn_weight=norm_spatial_scores[frame_index,:], draw_connections=True)
+                                                  spatial_attn_weight=norm_spatial_scores[frame_index,:], draw_connections=True, dataset= dataset)
                         elif model_type == 'parts':
                             print('frame norm_scores', norm_scores[frame_index])
                             print('frame attn weight', attn_weights[frame_index])
@@ -556,7 +632,18 @@ def _render_trajectories_skeletons(model_type,
                             #                      spatial_attn_weight=spatial_attn_weights[frame_index,:], draw_connections=True, draw_grouped_joints=True)
                             frame = draw_skeleton(frame, keypoints=skeleton_coordinates.reshape(-1, 2), 
                                                   colour=(0, 0, 0), attn_weight=attn_weights[frame_index],
-                                                  spatial_attn_weight=norm_spatial_scores[frame_index,:], draw_connections=True, draw_grouped_joints=True)
+                                                  spatial_attn_weight=norm_spatial_scores[frame_index,:], draw_connections=True, draw_grouped_joints=True, dataset= dataset)
+                        else:
+                            print('frame norm_scores', norm_scores[frame_index])
+                            print('frame attn weight', attn_weights[frame_index])
+                            # print('frame norm_spatial_body_part_scores', norm_spatial_scores[frame_index, :])
+                            #print('frame spatial_body_part_attn_weights', spatial_attn_weights[frame_index, :])
+                            #frame = draw_skeleton(frame, keypoints=skeleton_coordinates.reshape(-1, 2), 
+                            #                      colour=(0, 0, 0), attn_weight=attn_weights[frame_index],
+                            #                      spatial_attn_weight=spatial_attn_weights[frame_index,:], draw_connections=True, draw_grouped_joints=True)
+                            frame = draw_skeleton(frame, keypoints=skeleton_coordinates.reshape(-1, 2), 
+                                                  colour=(0, 0, 0), attn_weight=attn_weights[frame_index],
+                                                  spatial_attn_weight=None, draw_connections=True, draw_grouped_joints=True, dataset= dataset)
                             
                             
 
@@ -592,6 +679,8 @@ def _render_trajectories_skeletons(model_type,
             frame_name = frame_name + '_score_' + str(round(norm_scores[frame_index].item(),4)) + '.jpg'
         elif model_type in ['temporal_2', 'temporal_4']: #do not save scores in the file name for sequences of joints/body parts
             frame_name = frame_name + '.jpg'
+        else:
+            frame_name = frame_name + '.jpg'
          
         print('frame_name', frame_name)
 
@@ -613,6 +702,266 @@ def _render_trajectories_skeletons(model_type,
     f.close()
     print('\nAttention scores written to', attention_scores_file)
 
+def render_tubelet_parts(model_type, test_video, person_id=None, draw_trajectory_segment=False, frames=None, attn_scores=None, spatial_attn_scores=None, dataset=None):
+    if dataset=='HRC':
+        test_category = re.split('(\d+)', test_video)[0]
+    else:
+        test_category = test_video[-4:]
+
+    print('test_category', test_category)
+    print('frames', frames)
+    print('attn_scores', attn_scores)
+
+    path = '/home/s2435462/HRC/data'
+
+    frames_path = os.path.join(path, 'test_frames', test_video)
+    if dataset == 'HRC':
+        trajectories_path = os.path.join('/home/s2435462/HRC/HRC_files/dataverse_files/trajectories_all', test_category, test_video)
+    else:
+        trajectories_path = os.path.join('/home/s2435462/HRC/NTU/skeleton/trajectory_csv_2D', test_category, 'P005')
+    #trajectories_path = '/content/gdrive/MyDrive/CAIP HR-Crime/HR-Crime/Trajectories/Robbery/Robbery101'
+    draw_trajectories_skeleton = True
+    draw_trajectories_bounding_box = False
+    specific_person_id = person_id
+    specific_frames = frames
+    draw_local_skeleton = False
+    trajectories_colour = 'red'
+
+
+    if trajectories_path is None:
+        raise ValueError('--trajectories must be specified.')
+
+    if not any([draw_trajectories_skeleton, draw_trajectories_bounding_box]):
+        raise ValueError('--draw_trajectories_skeleton or '
+                         '--draw_trajectories_bounding_box must be specified.')
+
+    if draw_local_skeleton and specific_person_id is None:
+        raise ValueError('If --draw_local_skeleton is specified, a --person_id must be chosen as well.')
+    elif draw_local_skeleton:
+        draw_trajectories_skeleton = True
+        draw_trajectories_bounding_box = False
+    
+    if (draw_trajectory_segment and specific_frames is None):
+      raise ValueError('Must specify --frames to draw when --draw_trajectory_segment is chosen')
+
+    print('specific_frames', specific_frames)
+    
+    '''
+    if (attn_scores is not None and specific_frames is None):
+      raise ValueError('Must specify --frames to display --attn_weights')
+    '''
+    
+    print('############specific_person_id', specific_person_id)
+
+    if type(specific_person_id) and specific_frames.any():
+        specific_start_frame = specific_frames[0]
+        specific_end_frame = specific_frames[-1]
+        write_dir = os.path.join(path, 'skeleton_visualizations_specific_person_specific_frames', model_type, test_video, test_video + '_' + 
+                                str(specific_person_id) + '_start_frame_' + str(specific_start_frame) + '_end_frame_' + str(specific_end_frame))
+        print('first')
+    elif type(specific_person_id):
+        write_dir = os.path.join(path, 'skeleton_visualizations_specific_person_specific_frames', model_type, test_video, test_video + '_' + str(specific_person_id))
+        print('second')
+
+    # write_dir = 'sadfasfdsa'
+    print('write_dir',write_dir)
+    maybe_create_dir(write_dir)
+
+    _render_tubelet_parts(model_type,
+                                   write_dir,
+                                   test_video,
+                                   frames_path, trajectories_path,
+                                   draw_trajectories_skeleton,
+                                   draw_trajectories_bounding_box,
+                                   specific_person_id,
+                                   specific_frames,
+                                   attn_scores,
+                                   spatial_attn_scores,
+                                   #spatial_body_part_attn_scores,
+                                   draw_local_skeleton,
+                                   trajectories_colour,
+                                   dataset=dataset)
+    print('Visualisation successfully rendered to %s' % write_dir)
+    
+
+    return None
+
+def _render_tubelet_parts(model_type,
+                                   write_dir,
+                                   test_video,
+                                   frames_path, trajectories_path,
+                                   draw_trajectories_skeleton,
+                                   draw_trajectories_bounding_box,
+                                   specific_person_id=None,
+                                   specific_frames=None,
+                                   attn_scores=None,
+                                   spatial_attn_scores=None,
+                                   #spatial_body_part_attn_scores=None,
+                                   draw_local_skeleton=False,
+                                   trajectories_colour=None,
+                                   dataset = None):
+    frames_names = os.listdir(frames_path)
+    frames_names.sort(key=lambda f: int(re.sub('\D', '', f)))
+    #print('frames_names', frames_names)
+    
+    if specific_frames.any():
+      min_frame_id = specific_frames[0]
+      max_frame_id = specific_frames[-1] + 1
+    else:
+      min_frame_id = 0
+      max_frame_id = len(frames_names)
+
+    print('min_frame_id', min_frame_id)
+    print('max_frame_id', max_frame_id)
+    
+    attention_scores_file = os.path.join(write_dir,'attention_scores.csv')
+    f = open(attention_scores_file, "w")
+    csv_writer = csv.writer(f, delimiter=';')
+
+    if model_type in ('spatial-temporal','parts'):
+        csv_writer.writerow(['Frame index', 'Frame', 'Frame attention', 'Spatial attention'])
+    else:
+        csv_writer.writerow(['Frame index', 'Frame', 'Frame attention'])
+
+    norm_scores = torch.nn.functional.normalize(attn_scores, p=1, dim=0) #normalize scores to sum 1
+    print('\nnorm_scores.shape', norm_scores.shape)
+
+    print('norm scores:', norm_scores)
+    print('sum norm scores', sum(norm_scores))
+    attn_weights = norm_scores.reshape(-1, 1)
+    #print('attn_weights', attn_weights)
+    
+    scaler = MinMaxScaler(feature_range=(0.3, 1))
+    attn_weights = scaler.fit_transform(attn_weights) #compute min and max, and re-scale mean scores
+    attn_weights = attn_weights.reshape(-1)
+    print('scaled attn_weights', attn_weights)
+    
+    
+    if model_type in ('spatial-temporal','parts'):
+        norm_spatial_scores = torch.nn.functional.normalize(spatial_attn_scores, p=1, dim=1) #normalize scores to sum 1
+        print('\n\nnorm_spatial_scores shape', norm_spatial_scores.shape)
+        #print('norm_spatial_scores:', norm_spatial_scores)
+        #print(sum(norm_spatial_scores))
+        print('sum norm_spatial_scores', torch.sum(norm_spatial_scores, dim=1))
+    
+    rendered_frames = {}
+    if trajectories_path is not None:
+        if dataset == 'HRC':
+            trajectories_files_names = sorted(os.listdir(trajectories_path))  # 001.csv, 002.csv, ...
+        else:
+            trajectories_files_names = [test_video+'_0.csv']
+        #print(trajectories_files_names)
+
+        
+        for trajectory_file_name in trajectories_files_names:
+            print('trajectory_file_name: ', trajectory_file_name)
+            if dataset == 'HRC':
+                person_id = int(trajectory_file_name.split('.')[0])
+            else:
+                person_id = int(trajectory_file_name[:-4].split('_')[1])
+            if specific_person_id is not None and specific_person_id != person_id:
+                continue
+        
+            colour = (0, 0, 0) if trajectories_colour == 'black' else (0, 0, 255) #color in BGR
+
+            trajectory = np.loadtxt(os.path.join(trajectories_path, trajectory_file_name), delimiter=',', ndmin=2)
+            trajectory_frames = trajectory[:, 0].astype(np.int32)
+            trajectory_coordinates = trajectory[:, 1:]
+
+            print("trajectory_frames:", trajectory_frames)
+
+            for frame_id, skeleton_coordinates in zip(trajectory_frames, trajectory_coordinates):
+                if frame_id >= max_frame_id:
+                    break
+
+                if frame_id < min_frame_id:
+                  continue
+                
+                
+                frame_index = np.where(specific_frames == frame_id)[0][0]
+                print('frame_id', frame_id)
+                print('frame_index', frame_index)
+                frame = rendered_frames.get(frame_id)
+                if frame is None:
+                    print(frames_path)
+                    print(frames_names)
+                    frame = cv.imread(os.path.join(frames_path, frames_names[frame_id]))
+                    if draw_local_skeleton:
+                        frame = np.full_like(frame, fill_value=255)
+
+                if draw_trajectories_skeleton:
+                    if draw_local_skeleton:
+                        height, width = frame.shape[:2]
+                        left, right, top, bottom = compute_simple_bounding_box(skeleton_coordinates)
+                        bb_center = np.array([(left + right) / 2, (top + bottom) / 2], dtype=np.float32)
+                        target_center = np.array([3 * width / 4, height / 2], dtype=np.float32)
+                        displacement_vector = target_center - bb_center
+                        frame = draw_skeleton(frame, keypoints=skeleton_coordinates.reshape(-1, 2) + displacement_vector,
+                                      colour=colour, dotted=False, attn_weight= attn_weights[frame_index], dataset= dataset)
+                    else:
+                        if model_type == 'ttspcc2':
+                            # print('frame norm_scores', norm_scores[frame_index])
+                            # print('frame attn weight', attn_weights[frame_index])
+                            # print('frame norm_spatial_body_part_scores', norm_spatial_scores[frame_index, :])
+                            # #print('frame spatial_body_part_attn_weights', spatial_attn_weights[frame_index, :])
+                            #frame = draw_skeleton(frame, keypoints=skeleton_coordinates.reshape(-1, 2), 
+                            #                      colour=(0, 0, 0), attn_weight=attn_weights[frame_index],
+                            #                      spatial_attn_weight=spatial_attn_weights[frame_index,:], draw_connections=True, draw_grouped_joints=True)
+                            # frame = draw_skeleton(frame, keypoints=skeleton_coordinates.reshape(-1, 2), 
+                                                #   colour=(0, 0, 0), attn_weight=attn_weights[frame_index],
+                                                #   spatial_attn_weight=norm_spatial_scores[frame_index,:], draw_connections=True, draw_grouped_joints=True, dataset= dataset, model_type='ttspcc2')
+                            frame = draw_body_parts(frame, keypoints=skeleton_coordinates.reshape(-1, 2), dotted=False, attn_weight=attn_weights, dataset=dataset)
+
+                #print('frame_id', frame_id)
+                rendered_frames[frame_id] = frame
+    
+
+    for frame_id, frame_name in enumerate(frames_names):     
+        if frame_id >= max_frame_id:
+          break
+        
+        if (frame_id < min_frame_id) or (frame_id not in specific_frames):
+           continue  
+        
+        print('frame_id', frame_id)
+        frame = rendered_frames.get(frame_id)
+        if frame is None:
+            frame = cv.imread(os.path.join(frames_path, frame_name))
+            if draw_local_skeleton:
+                frame = np.full_like(frame, fill_value=255)
+        
+        
+        frame_name, _ = frame_name.split('.')
+        frame_index = np.where(specific_frames == frame_id)[0][0]
+        print('frame_index', frame_index)
+        if model_type in ['temporal', 'temporal_3', 'spatial-temporal','parts']: #only save scores in the file name for sequences of frames
+            frame_name = frame_name + '_score_' + str(round(norm_scores[frame_index].item(),4)) + '.jpg'
+        elif model_type in ['temporal_2', 'temporal_4']: #do not save scores in the file name for sequences of joints/body parts
+            frame_name = frame_name + '.jpg'
+        else:
+            frame_name = frame_name + '.jpg'
+         
+        print('frame_name', frame_name)
+
+        #np.set_printoptions(suppress=True)
+        if model_type in ('spatial-temporal','parts'):
+            scores_list = norm_spatial_scores[frame_index, :].numpy()
+            csv_writer.writerow([frame_index, frame_name, 
+                                 norm_scores[frame_index].numpy(), 
+                                 sorted(range(len(scores_list)), key=lambda i: scores_list[i], reverse=True)[:5],
+                                 sorted(scores_list, reverse=True)[:5],
+                                 scores_list])
+        elif model_type == 'ttspcc2':
+            pass
+        else:
+            csv_writer.writerow([frame_index, frame_name, norm_scores[frame_index].numpy()])
+        
+        image_dir = os.path.join(write_dir, frame_name) #save image (.jpg)
+        print('image_dir: ',image_dir)
+        cv.imwrite(image_dir, img=frame)
+
+    f.close()
+    print('\nAttention scores written to', attention_scores_file)
 
 def maybe_create_dir(dir_path):
     if not os.path.exists(dir_path):
@@ -636,12 +985,15 @@ def compute_simple_bounding_box(skeleton):
 
 
 #def visualize_skeleton_and_attention(model_type, test_video, person_id, draw_trajectory_segment, test_frames, scores, spatial_scores=None, spatial_body_part_scores=None):
-def visualize_skeleton_and_attention(model_type, test_video, person_id, draw_trajectory_segment, test_frames, scores, spatial_scores=None):    
+def visualize_skeleton_and_attention(model_type, test_video, person_id, draw_trajectory_segment, test_frames, scores, spatial_scores=None, dataset=None):    
     
-    video_path = '/data/s3447707/MasterThesis/test_videos/'
-    frames_path = '/data/s3447707/MasterThesis/test_frames/'
+    video_path = '/home/s2435462/HRC/data/test_videos/'
+    frames_path = '/home/s2435462/HRC/data/test_frames/'
     
-    video_file = os.path.join(video_path, test_video) + '_x264.mp4'
+    if dataset == 'HRC':
+        video_file = os.path.join(video_path, test_video) + '_x264.mp4'
+    else:
+        video_file = os.path.join(video_path, test_video) + '_rgb.avi'
     output_directory = os.path.join(frames_path, test_video)
     
     
@@ -657,6 +1009,7 @@ def visualize_skeleton_and_attention(model_type, test_video, person_id, draw_tra
         extract_frames(video_file,output_directory)
     
     person_id = int(person_id)
+    print('person_id', person_id)
     draw_trajectory_segment = True
     
     scores = scores[1:]
@@ -669,9 +1022,11 @@ def visualize_skeleton_and_attention(model_type, test_video, person_id, draw_tra
     if model_type in ('spatial-temporal','parts'):
         print('render trajcetories using spatial_scores with shape', spatial_scores.shape)
         #print('spatial_scores', spatial_scores)
-        render_trajectories_skeletons(model_type, test_video, person_id, draw_trajectory_segment, test_frames, attn_scores=scores, spatial_attn_scores=spatial_scores)
+        render_trajectories_skeletons(model_type, test_video, person_id, draw_trajectory_segment, test_frames, attn_scores=scores, spatial_attn_scores=spatial_scores, dataset=dataset)
+    elif model_type == 'ttspcc2':
+        render_tubelet_parts(model_type, test_video, person_id, draw_trajectory_segment, test_frames, attn_scores=scores, spatial_attn_scores=spatial_scores, dataset=dataset)
     else:
-        render_trajectories_skeletons(model_type, test_video, person_id, draw_trajectory_segment, test_frames, attn_scores=scores)
+        render_trajectories_skeletons(model_type, test_video, person_id, draw_trajectory_segment, test_frames, attn_scores=scores, dataset=dataset)
     
     '''
     elif model_type == 'parts':

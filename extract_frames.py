@@ -31,6 +31,7 @@ def extract_frames(file_directory, output_directory):
           # show how many frames are created 
           currentframe += 1
       else: 
+          print("no ret")
           break
     
   # Release all space and windows once done 

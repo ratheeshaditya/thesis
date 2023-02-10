@@ -1,12 +1,12 @@
 META:
-  NAME : test_ttspcc2        #folder name to store trained model and results
+  NAME : test_NTU_3D_ttspcc2_833_2        #folder name to store trained model and results
 
 MODEL:
   MODEL_TYPE : ttspcc2   #type of model to train, temporal, temporal_2, temporal_3, temporal_4, spatial-temporal or parts
   EMBED_DIM : 32           #embedding dimension used by the model
   SEGMENT_LEN : 24          #length of sliding window (no.of frames)
   DEBUG : TRUE              #load subset of trajectories in debug mode
-  DATASET : HRC          #dataset used HR-Crime/UTK/NTU_2D/NTU_3D
+  DATASET : NTU_3D          #dataset used HR-Crime/UTK/NTU_2D/NTU_3D
 
 DECOMPOSED:
   ENABLE: FALSE                #whether to use globally and locally decomposed trajectories
@@ -14,7 +14,9 @@ DECOMPOSED:
 
 TUBELET:                    #whether to use tubelet embeddings or not
   ENABLE: TRUE            
-  KERNEL: 5,3,3            #Kernel+Stride for tubelet embeddings
+  KERNEL: 8,3,3           #Kernel+Stride for tubelet embeddings
+  STRIDE: 8,3,3
+  PAD_MODE: constant      #Could be constant, replicate, reflect
 
 TRAINING:
   EPOCHS : 2              #maximum number of epochs during training

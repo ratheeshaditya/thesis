@@ -19,6 +19,17 @@ def SetupFolders(training_name, dataset):
 
   return base_folder, model_dir, log_dir, results_dir
 
+def SetupVisFolders(vis_name, dataset, type):
+  if type == 'ATTN':
+    base_folder = os.path.join('/home/s2435462/HRC/results/images_attn_weights', dataset, vis_name)
+  else:
+    base_folder = os.path.join('/home/s2435462/HRC/results/skeleton', dataset, vis_name)
+  log_dir = os.path.join(base_folder, 'logs')
+
+  os.makedirs(log_dir)
+
+  return base_folder, log_dir
+
 def SetupLogger(name, log_dir=None):
     logger = logging.getLogger(name)
     logger.setLevel(logging.INFO)
@@ -78,7 +89,7 @@ def evaluate_all(df_results, category, t, lab_len):
     balanced_accuracy = balanced_accuracy_score(y_true, y_pred)
     weighted_recall = recall_score(y_true, y_pred, average='weighted')
     weighted_precision = precision_score(y_true, y_pred, average='weighted')
-    weighted_f1 = f1_score(y_true, y_pred, average='weighted')
+    weighted_f1 = f1_score(y_true, y_pred, average='micro')
     top_3_accuracy = top_k_accuracy_score(y_true, y_score, k=3, labels=np.arange(lab_len))
     top_5_accuracy = top_k_accuracy_score(y_true, y_score, k=5, labels=np.arange(lab_len))
 

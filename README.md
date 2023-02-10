@@ -110,9 +110,6 @@ These are them saved as `trajectories_train_NTU_2D.dat` and `trajectories_test_N
 
 We now have the test and train datasets saved!!
 
-### `utils.py`
-
-This file stores the utility functions like `SetupFolders`, `SetupLogger`, `printstatistics`, `evaluate_all` etc..
 
 ### `train_transformer_cross_val_NTU.py`
 
@@ -138,9 +135,35 @@ For all the epochs, the data from the train dataloader is passed to the model. T
 
 If the patience is exceeded or the final epoch is done, the training is stopped. The test dataset is then used for test results.
 
-### `trajectory.py`
+### Other Scripts
 
-### `transformer.py`
+`decompose_trajectory.py` : Script to obtain local and global components of the input keypoints
+
+`trajectory.py` : Contains functions and class definitions related to the trajectories
+
+`transformer.py` : Contains class definitions of all the transformer models
+
+`utils.py` : This file stores the utility functions like `SetupFolders`, `SetupLogger`, `printstatistics`, `evaluate_all` etc..
+
+`calculate_performance.py` : Script to do evaluations and performance calculations
+
+`visualize_results.py` : Base script for attention and skeleton visualization
+
+`transformer_store_attn.py` : Transformer definitions with attention scores stored
+
+`visualize_attention_weights.py` : Script for visualizing attention weights
+
+`visualize_skeleton_and_attention.py` : Script for visualizing skeleton
+
+`vis_embeddings.py` : Script to obtain embeddings for TSNE and silhouette visualizations
+
+`silhouette.py` : To plot silhouette plots
+
+`tsne.ipynb` : Notebook to create tensorboard summary`
+
+`flops.py` : Script to find the computational complexity of the models
+
+`flops.ipynb` : Notebook to play with complexity of the models
 
 ## TODO
 

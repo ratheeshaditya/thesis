@@ -32,6 +32,7 @@ class hrc_dataset(Dataset):
         self.ix_class = {index:category for index,category in enumerate(self.category)}
 
         if print_stats==True:
+
             print("Dataset statistics")
             print("="*30)
             print(f"Total number of categories : {len(os.listdir(self.trajectory_path))}")
@@ -55,13 +56,16 @@ class hrc_dataset(Dataset):
             os.mkdir(os.path.join(self.dataset_name+"data"))
         dir_to_create = self.dataset_name+"data"
         
-        all_data=[]
+        all_data={"class_ix":self.class_ix,"ix_class":self.ix_class,"all_data":[]}
+
         for category in self.category:
             trajectory_list = os.path.join(self.trajectory_path,category)
             for trajectory in os.listdir(trajectory_list): #abuse001,abuse002 folders
                 temp_data = {"category_name":category,
-                            "video_file_name":trajectory}
-                temp_frame = {}
+                            "video_file_name":trajectory,
+                            "class_idx":self.class_ix[category]}
+                temp_frame = {} #mapping from frame to person
+                person_frame = {} #mapping from person to frame
                 trajectory_path = os.path.join(trajectory_list,trajectory)
                 # print(trajectory_path)
                 if trajectory!=".DS_Store":
@@ -76,13 +80,21 @@ class hrc_dataset(Dataset):
                             person_name = person_file.split(".")[0]
                             # print(type(only_coords))
                             for index,(frame,coords) in enumerate(zip(only_frames,only_coords)):
+                                
+                                #mapping for frame->person
                                 if int(frame) not in temp_frame:
                                     temp_frame[int(frame)] = {person_name:coords}
                                 else:
                                     temp_frame[int(frame)][person_name]=coords
+                                #creating mapping for person -> frame     
+                                if person_name not in person_frame:
+                                    person_frame[person_name] = [int(frame)]
+                                else:
+                                    person_frame[person_name].append(int(frame))
                     temp_data["video_frames"] = temp_frame
-                            
-            all_data.append(temp_data)
+                    temp_data["person_frame"] = person_frame
+                all_data["all_data"].append(temp_data)
+                
 
         filename = f"all_data-{self.dataset_name}.pickle"
         with open(f"{os.path.join(dir_to_create,filename)}", 'wb') as handle:

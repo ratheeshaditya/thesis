@@ -4,7 +4,15 @@ import torch
 import torch.nn as nn
 from einops import rearrange, repeat
 import torch.nn.functional as F
+import time
 
+from torchvision.models.vision_transformer import VisionTransformer
+from torchvision.models import vit_b_16
+from torchvision.models import ViT_B_16_Weights
+from torchvision.models import vit_b_32
+from torchvision.models import ViT_B_32_Weights
+from torchvision.models import resnet18
+from torchvision.models import ResNet18_Weights
 
 def get_average_body_parts(num_joints, x):
     '''
@@ -1386,7 +1394,9 @@ class BodyPartTransformer(nn.Module):
         #print(f"head(x) size: {x.size()}")
 
         return x
-  
+
+#Ajay  
+
 class TubeletTemporalTransformer(nn.Module):
     '''
     TTubeFormer Transformer
@@ -2470,7 +2480,7 @@ class TubeletTemporalSpatialPart_concat_chan_2_Transformer(nn.Module):
     '''
     def __init__(self, dataset=None, num_classes=13, num_frames=12, num_joints=17, in_chans=2, embed_dim_ratio=64, kernel=None, stride=None, depth=4,
                  num_heads=8, mlp_ratio=2., qkv_bias=True, qk_scale=None,
-                 drop_rate=0., attn_drop_rate=0., dropout=0.2, pad_mode='constant'):
+                 drop_rate=0., attn_drop_rate=0., dropout=0.2, pad_mode='constant',include_top=False,embed_dim_final=32):
         """    ##########hybrid_backbone=None, representation_size=None,
         Args:
             num_classes (int): number of classes for classification head, HR-Crime constists of 13 crime categories
@@ -2486,16 +2496,17 @@ class TubeletTemporalSpatialPart_concat_chan_2_Transformer(nn.Module):
             drop_rate (float): dropout rate
             attn_drop_rate (float): attention dropout rate
             drop_path_rate (float): stochastic depth rate
+            include_top (boolean): Requires the final classification layer, False means just purely features
         """
         super().__init__()
-
+        self.include_top=include_top
         self.in_chans = in_chans
         self.dataset = dataset
         self.pad_mode = pad_mode
         self.num_embed = (int((num_frames-kernel[0])/stride[0]) + 1) * (int((3-kernel[1])/stride[1]) + 1) * (int((3-kernel[2])/stride[2]) + 1)
-        
+        self.embed_dim_final = embed_dim_final
         embed_dim = embed_dim_ratio * self.num_embed #* 5   #### temporal embed_dim is embed_dim_ratio x num_embed (op of 3dconv) x 5 (no. of body parts)
-
+        # print(embed_dim)
         ### Tubelet Embedder
         if "NTU" in dataset or "HRC" in dataset:
             self.torso_conv = torch.nn.Conv3d(in_chans, embed_dim_ratio, kernel_size=kernel, stride=stride)
@@ -2583,7 +2594,7 @@ class TubeletTemporalSpatialPart_concat_chan_2_Transformer(nn.Module):
         # Classifier head(s)
         "Define standard linear to map the final output sequence to class logits"
         self.head = nn.Linear(embed_dim, num_classes) #do not use softmax here. nn.CrossEntropyLoss takes the logits as input and calculates the softmax
-        
+        self.embed = nn.Linear(embed_dim, self.embed_dim_final)
         #print('self.head',self.head)
         #print('num_classes',num_classes)
 
@@ -2763,12 +2774,19 @@ class TubeletTemporalSpatialPart_concat_chan_2_Transformer(nn.Module):
             # ankles = ankles.unsqueeze(1)                                       ## Shape: b 1 f 6 6
 
         torso_embed = self.Torso_forward_features(torso)
+        # print(torso_embed.size())
         elbows_embed = self.Elbow_forward_features(elbows)
+        # print(elbows_embed.size())
         wrists_embed = self.Wrist_forward_features(wrists)
-        knees_embed = self.Knee_forward_features(knees)
-        ankles_embed = self.Ankle_forward_features(ankles)
+        # print(wrists_embed.size())
 
+        knees_embed = self.Knee_forward_features(knees)
+        # print(knees_embed.size())
+        ankles_embed = self.Ankle_forward_features(ankles)
+        # print(ankles_embed.size())
         x = torch.stack((torso_embed, elbows_embed, wrists_embed, knees_embed, ankles_embed), dim=1)
+
+
 
         return x
 
@@ -2777,6 +2795,120 @@ class TubeletTemporalSpatialPart_concat_chan_2_Transformer(nn.Module):
      
         x = self.forward_features(x)
         
-        x = self.head(x)
-        x = F.log_softmax(x, dim=1)
+        if self.include_top:
+            x = self.head(x)
+            x = F.log_softmax(x, dim=1)
+            return x
+        else:
+            return self.embed(x)
+        
+
+
+class vit_model(nn.Module):
+    """
+        Uses PyTorch implementation of VIT
+        Params
+        =========
+        in_channel -> input of the final layer(generally 768, default ViT layer)
+        out_channel -> output of the final layer(for our case will be the embedding size so we can align to the last)
+        fine_tune_mode -> If enabled freezes all the layer except the last
+
+    """
+    def __init__(self,embed_dim,in_channel,out_channel,fine_tune_mode=False,pretrained_model="vit16",weights="IMAGENET1K_V1"):
+        super().__init__()
+        # self.vit_model = vit_b_16()
+        # self.vit_model.heads.head = nn.Linear(in_channel,out_channel)
+        if not fine_tune_mode: #If fine tune mode is off
+            self.vit_model = VisionTransformer(image_size= 224,
+                patch_size= 16,
+                num_layers= 6,
+                num_heads= 4,
+                hidden_dim= 768,
+                mlp_dim= 40,
+                dropout=   0.0,
+                attention_dropout=   0.0,
+                num_classes=  embed_dim,
+            )
+        
+            print(f"Loaded ViT model, ViT embeding dim : {out_channel} Fine tune mode : {fine_tune_mode}")
+        else:
+            if pretrained_model=="vit16": #with 16 patches
+                imagenet_weights =  ViT_B_16_Weights[weights]
+                self.vit_model = vit_b_16(imagenet_weights)
+                for i in self.vit_model.parameters():
+                    i.requires_grad=False
+                self.vit_model.heads.head = nn.Linear(768,embed_dim)
+                getTrainableParameters = list(map(lambda x: x.requires_grad, self.vit_model.parameters()))[-1]
+                print(f"Loaded ViT model, ViT embeding dim : {out_channel} Fine tune mode : {fine_tune_mode}")
+                print(f"Last layer trainable : {getTrainableParameters}")
+
+            else: #with 32 patches
+                imagenet_weights= ViT_B_32_Weights[weights]
+                self.vit_model = vit_b_32(imagenet_weights)
+                for i in self.vit_model.parameters():
+                    i.requires_grad=False
+                self.vit_model.heads.head = nn.Linear(768,embed_dim)
+                getTrainableParameters = list(map(lambda x: x.requires_grad, self.vit_model.parameters()))[-1]
+                print(f"Loaded ViT model, ViT embeding dim : {out_channel} Fine tune mode : {fine_tune_mode}")
+                print(f"Last layer trainable : {getTrainableParameters}")
+
+    def forward(self,x):
+        x = self.vit_model(x)
         return x
+
+"""
+Takes in 2 models and learn parameters of these two embedding
+"""
+
+
+class ensemble(nn.Module): #takes in tublete embedding
+    def __init__(self,model_1,model_2,input_dim=32,output_dim=13,device=None):
+        super().__init__()
+        self.model_1 = model_1 #Tublete embedding
+        
+        print(f"Loaded model 1")
+        self.model_2 = model_2 #would be VIT or LSTM
+        print(f"Loaded model 2")
+        # print(f"Loaded model 2 : In cuda {next(self.model_1.parameters()).is_cuda}")
+        self.fc_layer = nn.Linear(input_dim,output_dim) #to change later
+        print("Loaded Ensemble")
+    
+    def forward(self,coordinates,frames): #coordinate input, frames input
+        # print(coordinates.shape)
+        # print(frames.shape)
+        start = time.time()
+        
+
+        coordinates = self.model_1(coordinates)
+        # print(f"Model 1 : {abs(start-time.time())}")
+        # print("Pass 1 ")
+        # print(coordinates.shape)
+        # print("check fram shape")
+        # print(frames.shape)
+        # start = time.time()
+        frames = self.model_2(frames)
+        # print(f"Model 2 : {abs(start-time.time())}")
+        # print("Pass 2 ")
+        # print(frames.shape)
+        fusion = torch.cat((coordinates,frames),dim=1)
+       
+        # print(fusion.shape)
+        x = self.fc_layer(fusion)
+        x= F.log_softmax(x,dim=1)
+        # print("Processed")
+        return x
+
+
+
+class ResNet(nn.Module):
+    def __init__(self,embed_dim):
+        super().__init__()
+        self.resnet = resnet18(ResNet18_Weights)
+        print("Loaded ResNet model")
+        for i in self.resnet.parameters():
+            i.requires_grad=False
+        self.layer = nn.Linear(512,embed_dim)
+        self.resnet.fc = self.layer
+
+    def forward(self,x):
+        return self.resnet(x)

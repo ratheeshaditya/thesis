@@ -1,0 +1,34 @@
+
+META:
+  # NAME : tubelet_part_transformer_1 #check batch size
+  # NAME : HRC_tubelet_temporal_1 #check batch size
+  NAME : test_nofinetune_9_fromscratch_14
+
+# META:
+#   NAME : test_NTU_3D_ttspcc2_833_11        #folder name to store trained model and results
+
+MODEL:
+  MODEL_TYPE : ttspcc2   #type of model to train, temporal, temporal_2, temporal_3, temporal_4, spatial-temporal or parts
+  EMBED_DIM : 64           #embedding dimension used by the model
+  SEGMENT_LEN : 20          #length of sliding window (no.of frames)
+  DEBUG : TRUE              #load subset of trajectories in debug mode
+  DATASET : HRC          #dataset used HR-Crime/UTK/NTU_2D/NTU_3D
+
+DECOMPOSED:
+  ENABLE: FALSE                #whether to use globally and locally decomposed trajectories
+  TYPE: GR                    #possible values: GR (Global repeated), GS (Global single)
+
+TUBELET:                    #whether to use tubelet embeddings or not
+  ENABLE: FALSE            
+  KERNEL: 8,3,3           #Kernel+Stride for tubelet embeddings
+  STRIDE: 8,3,3
+  PAD_MODE: constant      #Could be constant, replicate, reflect
+
+TRAINING:
+  EPOCHS : 25              #maximum number of epochs during training
+  BATCH_SIZE : 1200         #batch size for training
+  PATIENCE : 3             #patience before early stopping is enabled
+  LR : 0.0001                #starting learning rate for adaptive learning
+  LR_PATIENCE : 3           #patience before learning rate is decreased
+  KFOLD: 2                  #number of folds used for cross-validation
+  WEIGHT_DECAY: 0           #weight decay value

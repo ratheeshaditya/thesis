@@ -8,7 +8,7 @@ import torch
 import torch.nn.functional as F
 
 def SetupFolders(training_name, dataset):
-  base_folder = os.path.join('/home/s2435462/HRC/results', dataset, training_name)
+  base_folder = os.path.join('/home/s2765918/code-et/results', dataset, training_name)
   model_dir = os.path.join(base_folder, 'models')
   log_dir = os.path.join(base_folder, 'logs')
   results_dir = os.path.join(base_folder, 'results')
@@ -21,9 +21,9 @@ def SetupFolders(training_name, dataset):
 
 def SetupVisFolders(vis_name, dataset, type):
   if type == 'ATTN':
-    base_folder = os.path.join('/home/s2435462/HRC/results/images_attn_weights', dataset, vis_name)
+    base_folder = os.path.join('/home/s2765918/code-et/results/images_attn_weights', dataset, vis_name)
   else:
-    base_folder = os.path.join('/home/s2435462/HRC/results/skeleton', dataset, vis_name)
+    base_folder = os.path.join('/home/s2765918/code-et/results/skeleton', dataset, vis_name)
   log_dir = os.path.join(base_folder, 'logs')
 
   os.makedirs(log_dir)

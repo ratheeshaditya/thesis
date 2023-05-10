@@ -3,13 +3,14 @@
 '''
 import packages
 '''
-
+import time
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch._six import inf
 from torch.utils.data import DataLoader
+from torch.nn import DataParallel
 from torch.utils.tensorboard import SummaryWriter
 from functools import partial
 from random import shuffle
@@ -25,13 +26,27 @@ import csv
 import yaml
 import numpy as np
 import pandas as pd
+from vivit import ViViT
 import os
 import logging
+from sklearn.model_selection import StratifiedShuffleSplit
 import argparse
+from torchvision.models import vit_b_16
+from torchvision.models import ViT_B_16_Weights
+from torchvision.models import vit_b_32
+from torchvision.models import ViT_B_32_Weights
+
+
+# from util_video import extract_frames
 
 
 from trajectory import Trajectory, TrajectoryDataset, extract_fixed_sized_segments, split_into_train_and_test, remove_short_trajectories, get_categories, get_UTK_categories, get_NTU_categories
-from transformer import TubeletTemporalSpatialPart_concat_chan_2_Transformer, TubeletTemporalPart_concat_chan_1_Transformer, TubeletTemporalTransformer, TubeletTemporalPart_mean_chan_1_Transformer, TubeletTemporalPart_mean_chan_2_Transformer, TubeletTemporalPart_concat_chan_2_Transformer, TemporalTransformer_4, TemporalTransformer_3, TemporalTransformer_2, BodyPartTransformer, SpatialTemporalTransformer, TemporalTransformer, Block, Attention, Mlp
+from transformer import TubeletTemporalSpatialPart_concat_chan_2_Transformer, \
+                TubeletTemporalPart_concat_chan_1_Transformer, TubeletTemporalTransformer, \
+                TubeletTemporalPart_mean_chan_1_Transformer, TubeletTemporalPart_mean_chan_2_Transformer,\
+                 TubeletTemporalPart_concat_chan_2_Transformer, TemporalTransformer_4, \
+                 TemporalTransformer_3, TemporalTransformer_2, BodyPartTransformer, \
+                 SpatialTemporalTransformer, TemporalTransformer, Block, Attention, Mlp, ensemble,vit_model,ResNet
 from utils import print_statistics, SetupLogger, evaluate_all, evaluate_category, conv_to_float, SetupFolders, train_acc
 
 # logger.info("Reading args")
@@ -84,6 +99,17 @@ logger.info('CUDA available: %s', str(torch.cuda.is_available()))
 # device = "cuda:0" if torch.cuda.is_available() else "cpu"
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 logger.info('Available devices: %s', torch.cuda.device_count())
+if torch.cuda.device_count()>1:
+    data_parallelism = True
+    
+else:
+    data_parallelism = False
+available_gpus = [torch.cuda.get_device_name(i) for i in range(torch.cuda.device_count())]
+print("GPU Names : ")
+for i in available_gpus:
+    print(i)
+logger.info(f'GPU Parallelism : {data_parallelism}')
+
 # logger.info('Current cuda device: %s ', str(torch.cuda.current_device()))
 
 writer = SummaryWriter(log_dir=log_dir) # Tensorboard writer
@@ -102,8 +128,8 @@ if dataset=="HRC":
     decomposed = dec_GR_path if cfg['DECOMPOSED']['ENABLE'] else ""
     dimension = "2D"
 
-    PIK_train = "/home/s2435462/HRC/data/"+dataset+"/trajectories_train_HRC_"+decomposed+dimension+".dat"
-    PIK_test = "/home/s2435462/HRC/data/"+dataset+"/trajectories_test_HRC_"+decomposed+dimension+".dat"
+    PIK_train = "/home/s2765918/code-et/data/"+dataset+"/trajectories_train_HRC_"+decomposed+dimension+".dat"
+    PIK_test = "/home/s2765918/code-et/data/"+dataset+"/trajectories_test_HRC_"+decomposed+dimension+".dat"
 
     all_categories = get_categories()
 elif dataset == "UTK":
@@ -114,22 +140,22 @@ elif "NTU" in dataset:
     dimension = dataset.split('_')[-1]
     decomposed = dec_GR_path if cfg['DECOMPOSED']['ENABLE'] else ""
 
-    PIK_train = "/home/s2435462/HRC/data/"+dataset+"/trajectories_train_NTU_"+decomposed+dimension+".dat"
-    PIK_test = "/home/s2435462/HRC/data/"+dataset+"/trajectories_test_NTU_"+decomposed+dimension+".dat"
+    PIK_train = "/home/s2765918/code-et/data/"+dataset+"/trajectories_train_NTU_"+decomposed+dimension+".dat"
+    PIK_test = "/home/s2765918/code-et/data/"+dataset+"/trajectories_test_NTU_"+decomposed+dimension+".dat"
     # if "2D" in dataset:
     #     if cfg['TRAINING']['DECOMPOSED']:
-    #         PIK_train = "/home/s2435462/HRC/data/trajectories_train_NTU_2D.dat"
-    #         PIK_test = "/home/s2435462/HRC/data/trajectories_test_NTU_2D.dat"
+    #         PIK_train = "/home/s2765918/code-et/data/trajectories_train_NTU_2D.dat"
+    #         PIK_test = "/home/s2765918/code-et/data/trajectories_test_NTU_2D.dat"
     #     else:
-    #         PIK_train = "/home/s2435462/HRC/data/trajectories_train_NTU_2D.dat"
-    #         PIK_test = "/home/s2435462/HRC/data/trajectories_test_NTU_2D.dat"
+    #         PIK_train = "/home/s2765918/code-et/data/trajectories_train_NTU_2D.dat"
+    #         PIK_test = "/home/s2765918/code-et/data/trajectories_test_NTU_2D.dat"
     # elif "3D" in dataset:
     #     if cfg['TRAINING']['DECOMPOSED']:
-    #         PIK_train = "/home/s2435462/HRC/data/trajectories_train_NTU_3D.dat"
-    #         PIK_test = "/home/s2435462/HRC/data/trajectories_test_NTU_3D.dat"
+    #         PIK_train = "/home/s2765918/code-et/data/trajectories_train_NTU_3D.dat"
+    #         PIK_test = "/home/s2765918/code-et/data/trajectories_test_NTU_3D.dat"
     #     else:
-    #         PIK_train = "/home/s2435462/HRC/data/trajectories_train_NTU_3D.dat"
-    #         PIK_test = "/home/s2435462/HRC/data/trajectories_test_NTU_3D.dat"
+    #         PIK_train = "/home/s2765918/code-et/data/trajectories_train_NTU_3D.dat"
+    #         PIK_test = "/home/s2765918/code-et/data/trajectories_test_NTU_3D.dat"
     
     all_categories = get_NTU_categories()
 else:
@@ -170,9 +196,32 @@ test_crime_trajectories = remove_short_trajectories(test_crime_trajectories, inp
 DEBUG MODE
 '''
 if cfg['MODEL']['DEBUG']:
-    train_crime_trajectories = {key: value for key, value in train_crime_trajectories.items() if 'S001' in key or 'S002' in key or 'Shooting001' in key or 'Arson002'}
-    test_crime_trajectories = {key: value for key, value in test_crime_trajectories.items() if 'S003' in key or 'S004' in key or 'RoadAccidents010' in key or 'Robbery002'}  
-    logger.info('IN DEBUG MODE!!!\n')  
+    logger.info("Running in debug Mode")
+    splitter = StratifiedShuffleSplit(n_splits=1,train_size=0.05,test_size=0.05,random_state=1)
+    train_crime_trajectories_new ={}
+    test_crime_trajectories_new = {}
+    idx_filemap = {i:k for i,k in enumerate(train_crime_trajectories)}
+    all_labels = [v.category for k,v in train_crime_trajectories.items()]
+    split_labels_train = []
+    split_labels_test = []
+    for x,y in splitter.split(train_crime_trajectories,all_labels):
+        for i in x:
+            train_crime_trajectories_new[idx_filemap[i]] = train_crime_trajectories[idx_filemap[i]]
+            # split_labels_train.append(all_labels[i])
+
+        for j in y:
+            test_crime_trajectories_new[idx_filemap[j]] = train_crime_trajectories[idx_filemap[j]]
+            # split_labels_test.append(all_labels[j])
+
+    train_crime_trajectories = train_crime_trajectories_new
+    test_crime_trajectories = test_crime_trajectories_new
+
+    # train_crime_trajectories = {key: value for key, value in train_crime_trajectories.items() if 'S001' in key or 'S002' in key or 'Shooting001' in key or 'Arson002'}
+    # print("this is debug-2")
+    # print(len(train_crime_trajectories))
+    # test_crime_trajectories = {key: value for key, value in test_crime_trajectories.items() if 'S003' in key or 'S004' in key or 'RoadAccidents010' in key or 'Robbery002'}
+    # print(len(test_crime_trajectories))
+    # logger.info('IN DEBUG MODE!!!\n')  
 
 
 logger.info("Categories: %s", ','.join(all_categories))
@@ -234,6 +283,7 @@ def train_model(embed_dim, epochs):
         csv_writer_train = csv.writer(csv_file_train, delimiter=';')
         csv_writer_train.writerow(['fold', 'epoch', 'LR', 'Training Loss', 'Validation Loss', 'Validation Accuracy', 'Time'])
     
+
     with open(file_name_test, 'a') as csv_file_test:
         csv_writer_test = csv.writer(csv_file_test, delimiter=';')
         csv_writer_test.writerow(['fold', 'label', 'video', 'person', 'prediction', 'log_likelihoods'])
@@ -243,8 +293,8 @@ def train_model(embed_dim, epochs):
     Load segments from the trajectories and create Dataset from them
     '''
 
-    # segmented_path_train = '/home/s2435462/HRC/data/'+dataset+'/segmented/segmented_trajectory_train_'+cfg['MODEL']['DATASET']+'_'+str(cfg['MODEL']['SEGMENT_LEN'])+'_'+decomposed+str(cfg['MODEL']['DEBUG'])+'.pkl'
-    # segmented_path_test = '/home/s2435462/HRC/data/'+dataset+'/segmented/segmented_trajectory_test_'+cfg['MODEL']['DATASET']+'_'+str(cfg['MODEL']['SEGMENT_LEN'])+'_'+decomposed+str(cfg['MODEL']['DEBUG'])+'.pkl'
+    # segmented_path_train = '/home/s2765918/code-et/data/'+dataset+'/segmented/segmented_trajectory_train_'+cfg['MODEL']['DATASET']+'_'+str(cfg['MODEL']['SEGMENT_LEN'])+'_'+decomposed+str(cfg['MODEL']['DEBUG'])+'.pkl'
+    # segmented_path_test = '/home/s2765918/code-et/data/'+dataset+'/segmented/segmented_trajectory_test_'+cfg['MODEL']['DATASET']+'_'+str(cfg['MODEL']['SEGMENT_LEN'])+'_'+decomposed+str(cfg['MODEL']['DEBUG'])+'.pkl'
 
     # if os.path.exists(segmented_path_train):
     #     logger.info("Loading segmented Trajectory train dataset from %s",segmented_path_train)
@@ -276,13 +326,15 @@ def train_model(embed_dim, epochs):
         '''
         # assert all('sentences' in x for x in batch)
         # assert all('label' in x for x in batch)
+        
         return {
             'id': [x['id'] for x in batch],
             'videos': [x['videos'] for x in batch],
             'persons': [x['persons'] for x in batch],
             'frames': torch.tensor(np.array([x['frames'] for x in batch])),
             'categories': torch.tensor(np.array([x['categories'] for x in batch])),
-            'coordinates': torch.tensor(np.array([x['coordinates'] for x in batch]))
+            'coordinates': torch.tensor(np.array([x['coordinates'] for x in batch])),
+            'extracted_frames': torch.tensor([np.array(i["extracted_frames"]) for i in batch])
         }
 
     logger.info('--------------------------------')
@@ -304,7 +356,11 @@ def train_model(embed_dim, epochs):
 
         train_dataloader = torch.utils.data.DataLoader(train_subset, batch_size = batch_size, shuffle=True, collate_fn=collator_for_lists)
         val_dataloader = torch.utils.data.DataLoader(val_subset, batch_size = batch_size, shuffle=True, collate_fn=collator_for_lists)
-
+        
+        print("Train size: ")
+        print(len(train_dataloader))
+        print("Test Size")
+        print(len(val_dataloader))
         logger.info("Creating the model.")
         #intialize model
         if cfg['MODEL']['MODEL_TYPE'] == 'temporal':
@@ -342,15 +398,25 @@ def train_model(embed_dim, epochs):
         elif cfg['MODEL']['MODEL_TYPE'] == "ttspcc2":
             kernel = tuple(map(int, cfg['TUBELET']['KERNEL'].split(',')))
             stride = tuple(map(int, cfg['TUBELET']['STRIDE'].split(',')))
-            model = TubeletTemporalSpatialPart_concat_chan_2_Transformer(dataset=dataset, embed_dim_ratio=embed_dim, num_frames=segment_length, num_classes=num_classes, num_joints=num_joints, in_chans=in_chans, kernel=kernel, stride=stride, mlp_ratio=2., qkv_bias=True, qk_scale=None, dropout=0.1, pad_mode = cfg['TUBELET']['PAD_MODE'])
-        
+            model_1 = TubeletTemporalSpatialPart_concat_chan_2_Transformer(dataset=dataset, embed_dim_ratio=embed_dim, num_frames=segment_length, num_classes=num_classes, num_joints=num_joints, in_chans=in_chans, kernel=kernel, stride=stride, mlp_ratio=2., qkv_bias=True, qk_scale=None, dropout=0.1, pad_mode = cfg['TUBELET']['PAD_MODE'],embed_dim_final=embed_dim)
+            # model = TubeletTemporalSpatialPart_concat_chan_2_Transformer(dataset=dataset, embed_dim_ratio=embed_dim, num_frames=segment_length, num_classes=num_classes, num_joints=num_joints, in_chans=in_chans, kernel=kernel, stride=stride, mlp_ratio=2., qkv_bias=True, qk_scale=None, dropout=0.1, pad_mode = cfg['TUBELET']['PAD_MODE'],embed_dim_final=embed_dim,include_top=True)
+            # model_2 = ViViT(320, 16, 100, segment_length,dim=embed_dim) #vivit
+            model_2 = vit_model(embed_dim=embed_dim,in_channel=768,out_channel=embed_dim,fine_tune_mode=False)
+            # model_2 = ResNet(embed_dim=embed_dim)
+            if data_parallelism:
+                model = ensemble(model_1,model_2,input_dim=2*embed_dim,output_dim=num_classes,device=device)
+                model = DataParallel(model)
+
+            else:
+                model = ensemble(model_1,model_2,input_dim=2*embed_dim,output_dim=num_classes)
         else:
             raise Exception('model_type is missing, must be temporal, temporal_2, temporal_3, temporal_4, spatial-temporal or parts')
         
         model.to(device)
-
+        # print("Model CUDA Check")
+        # print(next(model.model_2.parameters()).is_cuda)
         logger.info("Models defined")
-        
+    
         # Initialize parameters with Glorot / fan_avg.
         # This code is very important! It initialises the parameters with a
         # range of values that stops the signal fading or getting too big.
@@ -381,48 +447,84 @@ def train_model(embed_dim, epochs):
         
         #print('start looping over epochs at', time.time())
         best_epoch = -1
+        
         for epoch in range(1, epochs+1):
 
             train_loss = 0.0
 
             model.train()
-
+            # iter_count = 0
             train_outputs = torch.tensor([]).to(device)
             train_labels = torch.LongTensor([]).to(device)
 
             logger.info("Epoch %d Enumerating Train loader..", epoch)
-        
+            # predicted_label = []
             for iter, batch in enumerate(train_dataloader, 1):
-                ids, videos, persons, frames, data, categories = batch['id'], batch['videos'], batch['persons'], batch['frames'], batch['coordinates'], batch['categories']
+                # print(iter)
+                # iter_count+=iter
                 
+                ids, videos, persons, frames, data, categories,extracted_frames = batch['id'], batch['videos'], batch['persons'], batch['frames'], batch['coordinates'], batch['categories'],batch['extracted_frames']
+
+                # ids, videos, persons, frames, data, categories = batch['id'], batch['videos'], batch['persons'], batch['frames'], batch['coordinates'], batch['categories']
+
+                # print(data.size())
+                # print(extracted_frames.shape)
+                # print(extracted_frames.)
+                
+                # print("ids")
+                # print(ids)
+                # print("Videos")
+                # print(videos)
+                # print("Persons")
+                # print(persons)
+                # # print(persons.shape)
+                # print("Frames")
+                # print(frames)
+                # print(frames.shape)
+                # print("extracted frames")
+                # print(extracted_frames.shape)
+                # print("Coordinates")
+                # print(data)
+
+                # print(data.shape)
+                # print(data.shape)
+                # video_frames =  extract_frames(ids,frames)
+                
+
                 labels = torch.tensor([y[0] for y in categories]).to(device)
                 # videos = videos
                 # persons = persons
-                frames = frames.to(device)
+                # frames = frames.to(device)
+
+                video_frames = extracted_frames.to(device)
+
                 data = data.to(device)
 
                 # if cfg['TUBELET']['ENABLE']:
                 #     data = rearrange(data, 'b f (h w c) -> b c f h w', h=5, w=5, c=2)
                 
                 optim.zero_grad(set_to_none=True)
-                
-                output = model(data)
-                
+                start = time.time()
+                output = model(data,video_frames)
+                # output = model(data)
+                # print(f"Output of model time :{abs(time.time()-start)}")
+                logger.info(f"Output of model time :{abs(time.time()-start)}")
+
+                # print(output.shape)
                 loss = cross_entropy_loss(output, labels)
                 loss.backward()
                 optim.step()
                 
                 train_loss += loss.item() * labels.size(0) # Multiplied by size since CEloss returns loss.item as loss per sample
-                
+                if (iter%100==0):
+                    logger.info(f"Completed {iter}/{len(train_dataloader)} Iterations")
+
                 train_outputs = torch.cat((train_outputs, output), 0)
                 train_labels = torch.cat((train_labels, labels), 0)
  
-                # writer.add_scalar("Fold_"+str(fold)+'/Batch_loss', loss.item(), epoch*len(train_dataloader)+iter+1)
-
-            '''
-            At the end of every epoch, do validation testing
-            '''
-            
+                writer.add_scalar("Fold_"+str(fold)+'/Batch_loss', loss.item(), epoch*len(train_dataloader)+iter+1)
+                writer.add_scalar("Fold_"+str(fold)+'/Batch_accuracy', train_acc(train_outputs,train_labels), epoch*len(train_dataloader)+iter+1)
+                # writer.add_scalars("Fold_"+str(fold)+"/Accuracy", {"Training": train_acc(train_outputs, train_labels), "Validation": correct / total}, epoch)
             the_current_loss, all_log_likelihoods, all_labels, all_videos, all_persons = evaluation(model, val_dataloader)
 
             _, all_predictions = torch.max(all_log_likelihoods, dim=1)          
@@ -539,21 +641,35 @@ def evaluation(model, data_loader):
     all_labels = torch.LongTensor([]).to(device)
     all_videos = []
     all_persons = []
-
+    print("Starting Evaluation")
     # Test validation data
     with torch.no_grad():
         cross_entropy_loss = nn.CrossEntropyLoss()
         for batch in data_loader:
-            ids, videos, persons, frames, data, categories = batch['id'], batch['videos'], batch['persons'], batch['frames'], batch['coordinates'], batch['categories']
+            ids, videos, persons, frames, data, categories,extracted_frames = batch['id'], batch['videos'], batch['persons'], batch['frames'], batch['coordinates'], batch['categories'],batch['extracted_frames']
+            # video_frames = extract_frames(ids,frames)
+
+            # print("Person variable")
+            # print(persons)
+            # print(persons.shape)
+            # print("Vifeo variable")
+            # print(frames.shape)
+            # print(frames)
+            # print("Data variable")
+            # print(data)
+            # print("Category")
+            # print(categories)
+            video_frames = extracted_frames.to(device)
+
             labels = torch.tensor([y[0] for y in categories]).to(device)
             videos = [y[0] for y in videos]
             persons = [y[0] for y in persons]
-            frames = frames.to(device)
+            # frames = frames.to(device)
             data = data.to(device)
             # if cfg['TUBELET']['ENABLE']:
             #     data = rearrange(data, 'b f (h w c) -> b c f h w', h=5, w=5, c=2)
                 
-            outputs = model(data)
+            outputs = model(data,video_frames)
 
             loss = cross_entropy_loss(outputs, labels)  
             loss_total += loss.item() * labels.size(0)

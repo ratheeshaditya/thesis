@@ -1,6 +1,12 @@
 from torch.utils.data import Dataset
 import numpy as np
 import re
+import cv2
+import torch
+import os
+from einops import rearrange, repeat
+
+
 
 categories = ['Abuse','Arrest','Arson', 'Assault', 'Burglary','Explosion','Fighting','RoadAccidents','Robbery','Shooting','Shoplifting','Stealing','Vandalism']
 
@@ -55,15 +61,47 @@ class TrajectoryDataset(Dataset):
     def __len__(self):
         return len(self.ids)
 
+    def extract_frames(self,ids,frame_list,path="/deepstore/datasets/dmb/MachineLearning/HRC/HRC_files/UCF_Videos"):
+        
+        getVideoFiles = ids[0]
+        
+        
+        videoDir =  getVideoFiles.split("_")[0][:-3] 
+
+        videofile = getVideoFiles.split("_")[0]+"_x264.mp4"
+
+        video_path = os.path.join(path,videoDir,videofile)
+
+        cap = cv2.VideoCapture(video_path) 
+
+        middle_frame = frame_list[len(frame_list)//2].item()
+        
+        cap.set(1,middle_frame) 
+
+        ret, frame = cap.read()
+        dim = (224,224)
+
+        resized = cv2.resize(frame, dim, interpolation = cv2.INTER_AREA)
+
+        frame = rearrange(resized,"h w c -> c h w")
+
+
+
+        return torch.from_numpy(frame)/255.0
+
     def __getitem__(self, idx):
         data = {}
         data['id'] = self.ids[idx]
+        
         data['videos'] = self.videos[idx]
+        
         data['persons'] = self.persons[idx]
         data['frames'] = self.frames[idx]
         data['categories'] = self.categories[idx]
         data['coordinates'] = self.coordinates[idx]
-
+        
+        data['extracted_frames'] = self.extract_frames(self.ids[idx],self.frames[idx])
+        
         return data
         # return self.ids[idx], self.videos[idx], self.persons[idx], self.frames[idx],self.coordinates[idx], self.categories[idx]
 
@@ -164,13 +202,10 @@ def _extract_fixed_sized_segments(dataset, trajectory, input_length):
     
     '''
     a = np.array([1, 2, 3])
-
     b = np.array([4, 5, 6])
-
     np.stack((a, b))
     array([[1, 2, 3],
            [4, 5, 6]])
-
     np.stack() will arrange lists like this.
     '''
     traj_frames, traj_X = np.stack(traj_frames, axis=0), np.stack(traj_X, axis=0)

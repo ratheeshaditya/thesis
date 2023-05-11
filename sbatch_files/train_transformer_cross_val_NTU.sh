@@ -2,7 +2,7 @@
 # parameters for slurm
 #SBATCH -J training                   # job name, don't use spaces, keep it short
 #SBATCH -c 32                          # number of cores, 1
-#SBATCH --gres=gpu:4                  # number of gpus 1, some clusters don't have GPUs
+#SBATCH --gres=gpu:2                  # number of gpus 1, some clusters don't have GPUs
 #SBATCH --mem=64gb                     # Job memory request
 #SBATCH --mail-type=END,FAIL          # email status changes (NONE, BEGIN, END, FAIL, ALL)
 #SBATCH --output=/home/s2765918/code-et/out/training_%j.log      # Standard output and error log

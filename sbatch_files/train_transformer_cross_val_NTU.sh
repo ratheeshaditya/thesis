@@ -2,7 +2,7 @@
 # parameters for slurm
 #SBATCH -J training                   # job name, don't use spaces, keep it short
 #SBATCH -c 32                          # number of cores, 1
-#SBATCH --gres=gpu:2                  # number of gpus 1, some clusters don't have GPUs
+#SBATCH --gres=gpu:1                  # number of gpus 1, some clusters don't have GPUs
 #SBATCH --mem=64gb                     # Job memory request
 #SBATCH --mail-type=END,FAIL          # email status changes (NONE, BEGIN, END, FAIL, ALL)
 #SBATCH --output=/home/s2765918/code-et/out/training_%j.log      # Standard output and error log
@@ -31,6 +31,9 @@ echo "Name of nodes used          : "$SLURM_JOB_NODELIST
 echo "Gpu devices                 : "$CUDA_VISIBLE_DEVICES
 echo "Starting worker: "
 echo $CONDA_DEFAULT_ENV
+
+
+
 
 # python -u ../train_transformer_cross_val_NTU.py --filename training_NTU_2D_128d_100e_10p_001 --lr 0.001 --embed_dim 128 --dataset NTU_2D --model_type temporal --epochs 100 --patience 10
 python -u ../train_transformer_cross_val_NTU.py --config_file ../test_1.yml

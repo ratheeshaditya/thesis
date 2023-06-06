@@ -5,8 +5,8 @@ import cv2
 import torch
 import os
 from einops import rearrange, repeat
-
-
+import time
+import h5py
 
 categories = ['Abuse','Arrest','Arson', 'Assault', 'Burglary','Explosion','Fighting','RoadAccidents','Robbery','Shooting','Shoplifting','Stealing','Vandalism']
 
@@ -36,9 +36,38 @@ class Trajectory:
         #self.is_global = False
         self.category = category #crime category: Abuse etc. 
         self.dimension = 2 if dimension=='2D' else 3
-
+        
     def __len__(self):
         return len(self.frames)
+
+    def extract_frames(self,ids,frame_list,path="/deepstore/datasets/dmb/MachineLearning/HRC/HRC_files/UCF_Videos"):
+            
+            getVideoFiles = ids[0]
+            
+            file = getVideoFiles.split("_")[0]
+            
+            videoDir = file[:-3] 
+
+            videofile = file +"_x264.mp4"
+
+            video_path = os.path.join(path,videoDir,videofile)
+
+            cap = cv2.VideoCapture(video_path) 
+
+            middle_frame = frame_list[len(frame_list)//2].item()
+            
+            cap.set(1,middle_frame) 
+
+            ret, frame = cap.read()
+            dim = (224,224)
+
+            resized = cv2.resize(frame, dim, interpolation = cv2.INTER_AREA)
+
+            # frame = rearrange(resized,"h w c -> c h w")
+
+
+
+            return torch.from_numpy(resized)/255.0
 
     def is_short(self, input_length, input_gap, pred_length=0):
         min_trajectory_length = input_length + input_gap * (input_length - 1) + pred_length
@@ -52,23 +81,45 @@ class TrajectoryDataset(Dataset):
     """
     def __init__(self, trajectory_ids, trajectory_videos, trajectory_persons, trajectory_frames, trajectory_categories, X):
         self.ids = trajectory_ids.tolist()
+        print("list of ids")
+        print(len(self.ids))
         self.videos = trajectory_videos.tolist()
         self.persons = trajectory_persons.tolist()
         self.frames = trajectory_frames
         self.categories = trajectory_categories
         self.coordinates = X
+        
+        # cold_start = np.stack([extract_frames(self.ids[i],self.frames[i]) for i in range(1000)])
+        # f = h5py.File('context_dataset.hdf5','a')
+        # start_idx= 1000
+        # cold_start = np.stack([extract_frames(self.ids[i],self.frames[i]) for i in range(start_idx)])
 
+        # f.create_dataset("context_data", data=cold_start,maxshape=(None,224,224,3),compression="gzip")
+        # print("Creating h5py file with compression on all data")
+        # cold_start =[]
+        # for i in range(start_idx,len(self.ids)):
+        #     cold_start.append(extract_frames(self.ids[i+1],self.frames[i+1]))
+        #     cold_start = np.stack(cold_start,axis=0)
+        #     if (i + 1) % 1000 == 0 or (i + 1) == len(self.ids):
+        #         f["context_data"].resize((f["context_data"].shape[0] + cold_start.shape[0]), axis = 0)
+        #         f["context_data"][-cold_start.shape[0]:] = cold_start
+        #         cold_start=[]
+        #     if i%100000:
+        #         print("Completed")
+        # f.close()
+        # print("Created H5py file")
     def __len__(self):
         return len(self.ids)
 
-    def extract_frames(self,ids,frame_list,path="/deepstore/datasets/dmb/MachineLearning/HRC/HRC_files/UCF_Videos"):
+    def extract_frames(self,ids,coordinates,frame_list,path="/deepstore/datasets/dmb/MachineLearning/HRC/HRC_files/UCF_Videos"):
         
         getVideoFiles = ids[0]
         
+        file = getVideoFiles.split("_")[0]
         
-        videoDir =  getVideoFiles.split("_")[0][:-3] 
+        videoDir = file[:-3] 
 
-        videofile = getVideoFiles.split("_")[0]+"_x264.mp4"
+        videofile = file +"_x264.mp4"
 
         video_path = os.path.join(path,videoDir,videofile)
 
@@ -79,19 +130,17 @@ class TrajectoryDataset(Dataset):
         cap.set(1,middle_frame) 
 
         ret, frame = cap.read()
-        dim = (224,224)
+        # dim = (224,224)
 
-        resized = cv2.resize(frame, dim, interpolation = cv2.INTER_AREA)
+        # resized = cv2.resize(frame, dim, interpolation = cv2.INTER_AREA)
 
-        frame = rearrange(resized,"h w c -> c h w")
-
-
-
-        return torch.from_numpy(frame)/255.0
+        # frame = rearrange(resized,"h w c -> c h w")
+        return frame/255.0
+        # return torch.from_numpy(resized)/255.0
 
     def __getitem__(self, idx):
         data = {}
-        data['id'] = self.ids[idx]
+        data['id'] = self.ids[idx] #contains all the videos
         
         data['videos'] = self.videos[idx]
         
@@ -99,9 +148,12 @@ class TrajectoryDataset(Dataset):
         data['frames'] = self.frames[idx]
         data['categories'] = self.categories[idx]
         data['coordinates'] = self.coordinates[idx]
-        
-        data['extracted_frames'] = self.extract_frames(self.ids[idx],self.frames[idx])
-        
+        # data['context'] = self.context[idx]
+        # print("Extracted frames time ")
+        # start = time.time()
+        data['extracted_frames'] = self.extract_frames(self.ids[idx],self.coordinates[idx],self.frames[idx])
+        # data['extracted_frames'] = self.context_frames[idx]
+        # print(f"Extracted frames : {abs(start-time.time())}")
         return data
         # return self.ids[idx], self.videos[idx], self.persons[idx], self.frames[idx],self.coordinates[idx], self.categories[idx]
 
@@ -159,16 +211,49 @@ def split_into_train_and_test(trajectories, train_ratio=0.8, seed=42):
 
     return trajectories_train, trajectories_val
 
+#read video
+def extract_frames(ids,frame_list,path="/deepstore/datasets/dmb/MachineLearning/HRC/HRC_files/UCF_Videos"):
+        
+    getVideoFiles = ids[0]
+
+    file = getVideoFiles.split("_")[0]
+
+    videoDir = file[:-3] 
+
+    videofile = file +"_x264.mp4"
+
+    video_path = os.path.join(path,videoDir,videofile)
+
+    cap = cv2.VideoCapture(video_path) 
+
+    middle_frame = frame_list[len(frame_list)//2].item()
+
+    cap.set(1,middle_frame) 
+
+    ret, frame = cap.read()
+    dim = (224,224)
+    try:
+        resized = cv2.resize(frame, dim, interpolation = cv2.INTER_AREA)
+    except:
+        print(video_path)
+        print(file)
+
+    # frame = rearrange(resized,"h w c -> c h w")
+
+
+
+    return torch.from_numpy(resized)/255.0
 
 #extract fixed sized segments using sliding window to create equal length input
 def extract_fixed_sized_segments(dataset, trajectories, input_length):
     '''
     Given a dataset of trajectories, divide each of them into segments and return a whole bunch of segments.
     '''
-    trajectories_ids, videos, persons, frames, categories, X = [], [], [], [], [], []
+    trajectories_ids, videos, persons, frames, categories, X,context = [], [], [], [], [], [],[]
 
     for trajectory in trajectories.values():
         traj_id, video_id, person_id, traj_frames, traj_category, traj_X = _extract_fixed_sized_segments(dataset, trajectory, input_length)
+        
         
         trajectories_ids.append(traj_id)
         frames.append(traj_frames)
@@ -176,9 +261,15 @@ def extract_fixed_sized_segments(dataset, trajectories, input_length):
         X.append(traj_X)
         videos.append(video_id)
         persons.append(person_id)
-            
-    trajectories_ids, videos, persons, frames, categories, X = np.vstack(trajectories_ids), np.vstack(videos), np.vstack(persons), np.vstack(frames), np.vstack(categories), np.vstack(X)
+        # frame = extract_frames(traj_id[0],traj_frames[0])
+        # context.append(frame)
 
+    # context = torch.stack(context)
+    # print("Context shape")
+    # print(context.shape)              
+    trajectories_ids, videos, persons, frames, categories, X = np.vstack(trajectories_ids), np.vstack(videos), np.vstack(persons), np.vstack(frames), np.vstack(categories), np.vstack(X)
+    # print("Context shape")
+    # print(context.shape)
     return trajectories_ids, videos, persons, frames, categories, X
 
 
@@ -230,3 +321,31 @@ def _extract_fixed_sized_segments(dataset, trajectory, input_length):
     
     # return trajectory_id, video_id, person_id, traj_frames, category, traj_X
     return traj_ids, traj_videos, traj_persons, traj_frames, traj_categories, traj_X
+
+
+def extract_frames(ids,frame_list,path="/deepstore/datasets/dmb/MachineLearning/HRC/HRC_files/UCF_Videos"):
+        
+    getVideoFiles = ids[0]
+    
+    file = getVideoFiles.split("_")[0]
+    
+    videoDir = file[:-3] 
+
+    videofile = file +"_x264.mp4"
+
+    video_path = os.path.join(path,videoDir,videofile)
+
+    cap = cv2.VideoCapture(video_path) 
+
+    middle_frame = frame_list[len(frame_list)//2].item()
+    
+    cap.set(1,middle_frame) 
+
+    ret, frame = cap.read()
+    dim = (224,224)
+
+    resized = cv2.resize(frame, dim, interpolation = cv2.INTER_AREA)
+
+    # frame = rearrange(resized,"h w c -> c h w")
+    # return resized/255.0
+    return torch.from_numpy(resized)/255.0

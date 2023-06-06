@@ -2,3 +2,5 @@ __pycache__
 sbatch_files/mlruns
 mlruns
 data/
+context_dataset.hdf5
+parallelDistributed.sh

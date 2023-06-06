@@ -2,13 +2,13 @@
 META:
   # NAME : tubelet_part_transformer_1 #check batch size
   # NAME : HRC_tubelet_temporal_1 #check batch size
-  NAME : test_nofinetune_9_fromscratch_14
+  NAME : crossattentioncontssextssssssfix_6611_fusion_1_temporal_32222_with_attention_250
 
 # META:
 #   NAME : test_NTU_3D_ttspcc2_833_11        #folder name to store trained model and results
 
 MODEL:
-  MODEL_TYPE : ttspcc2   #type of model to train, temporal, temporal_2, temporal_3, temporal_4, spatial-temporal or parts
+  MODEL_TYPE : temporal   #type of model to train, temporal, temporal_2, temporal_3, temporal_4, spatial-temporal or parts
   EMBED_DIM : 64           #embedding dimension used by the model
   SEGMENT_LEN : 20          #length of sliding window (no.of frames)
   DEBUG : TRUE              #load subset of trajectories in debug mode
@@ -25,8 +25,8 @@ TUBELET:                    #whether to use tubelet embeddings or not
   PAD_MODE: constant      #Could be constant, replicate, reflect
 
 TRAINING:
-  EPOCHS : 25              #maximum number of epochs during training
-  BATCH_SIZE : 1200         #batch size for training
+  EPOCHS : 10              #maximum number of epochs during training
+  BATCH_SIZE : 200         #batch size for training
   PATIENCE : 3             #patience before early stopping is enabled
   LR : 0.0001                #starting learning rate for adaptive learning
   LR_PATIENCE : 3           #patience before learning rate is decreased

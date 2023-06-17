@@ -32,11 +32,15 @@ from vivit import ViViT
 import os
 import logging
 from sklearn.model_selection import StratifiedShuffleSplit
+from sklearn.model_selection import StratifiedKFold
 import argparse
 from torchvision.models import vit_b_16
 from torchvision.models import ViT_B_16_Weights
 from torchvision.models import vit_b_32
 from torchvision.models import ViT_B_32_Weights
+from vit import VisionTransformer
+import h5py
+from concurrent.futures import ThreadPoolExecutor
 
 
 # from util_video import extract_frames
@@ -48,7 +52,8 @@ from transformer import TubeletTemporalSpatialPart_concat_chan_2_Transformer, \
                 TubeletTemporalPart_mean_chan_1_Transformer, TubeletTemporalPart_mean_chan_2_Transformer,\
                  TubeletTemporalPart_concat_chan_2_Transformer, TemporalTransformer_4, \
                  TemporalTransformer_3, TemporalTransformer_2, BodyPartTransformer, \
-                 SpatialTemporalTransformer, TemporalTransformer, Block, Attention, Mlp, ensemble,vit_model,FusionModel_TemporalTransformer
+                 SpatialTemporalTransformer, TemporalTransformer, Block, Attention, Mlp, ensemble,vit_model,FusionModel_TemporalTransformer,TemporalTransformerFusion,TemporalTransformer_nmap,TemporalTransformer_nmap_lfusion,TemporalTransformer_CrossAttention
+
 from utils import print_statistics, SetupLogger, evaluate_all, evaluate_category, conv_to_float, SetupFolders, train_acc
 
 # logger.info("Reading args")
@@ -176,6 +181,10 @@ with open(PIK_train, "rb") as f:
 with open(PIK_test, "rb") as f:
     test_crime_trajectories = pickle.load(f)
 
+
+
+
+
 logger.info("Loaded %d train and %d test files", len(train_crime_trajectories), len(test_crime_trajectories))
 
 # Load the frame lengths to a list so that the min, max and mean no. of frames could be found
@@ -193,14 +202,22 @@ logger.info("Removing short trajectories")
 train_crime_trajectories = remove_short_trajectories(train_crime_trajectories, input_length=segment_length, input_gap=0, pred_length=0)
 test_crime_trajectories = remove_short_trajectories(test_crime_trajectories, input_length=segment_length, input_gap=0, pred_length=0)
 
+multimodal = cfg['MODEL']['MULTI_MODAL_SETTING']
+
+if not multimodal:
+    logger.info(f"Running only Skeleton trajectories")
+else:
+    logger.info(f"Running with Skeleton with visual information")
+
+
 
 '''
 DEBUG MODE
 '''
 if cfg['MODEL']['DEBUG']:
     logger.info("Running in debug Mode")
-    train_size =0.1
-    test_size=0.1
+    train_size =cfg["STRATIFIED_SPLIT"]["train_split"]
+    test_size=cfg["STRATIFIED_SPLIT"]["test_split"]
     splitter = StratifiedShuffleSplit(n_splits=1,train_size=train_size,test_size=test_size,random_state=1)
     print("Debug config")
     print(f"Train Size : {train_size}")
@@ -257,7 +274,7 @@ def train_model(embed_dim, epochs):
     n = cfg['TRAINING']['KFOLD']
     
     logger.info("Applying K-Fold with k = %d", n) 
-    kf = KFold(n_splits=n, random_state=42, shuffle=True)
+    # kf = KFold(n_splits=n, random_state=42, shuffle=True)
     
     #file to save results
     if dataset == "HRC":
@@ -322,15 +339,35 @@ def train_model(embed_dim, epochs):
     #     with open(segmented_path_test, 'wb') as fi:
     #         pickle.dump(test, fi)
 
+
+    
+
+    # train_frames = np.memmap(f"/home/s2765918/code-et/code/npy_data/train_all_20_vit16.npy", dtype='float32', mode='r', shape=(3493623,768)) 
+    
+    # train_frames = np.array(np.memmap(f"/home/s2765918/code-et/code/npy_data/train_all_20_vit16.npy", dtype='float32', mode='r', shape=(3493623,768))[:])
+    if multimodal: #read descriptors
+        logger.info("Loading descriptors of ViT and Test Frames")
+        train_frames = np.load("/home/s2765918/code-et/code/npy_data/sorted_data_fullframes/train_all_20_vit16_new_with_idx_sorted.npy",allow_pickle=True)
+        # test_frames = np.memmap(f"/home/s2765918/code-et/code/npy_data/test_all_20_vit16.npy", dtype='float32', mode='r', shape=(844268,768)) 
+        
+        # test_frames = np.array(np.memmap("/home/s2765918/code-et/code/npy_data/test_all_20_vit16.npy", dtype='float32', mode='r', shape=(844268,768))[:])
+        test_frames = np.load("/home/s2765918/code-et/code/npy_data/sorted_data_fullframes/test_all_20_vit16_new_with_idx.npy_sorted.npy",allow_pickle=True)
+        print(f"Length of train {train_frames.shape} length of test : {test_frames.shape}")
+
+
     logger.info("Creating Trajectory Train and Test datasets")
     
-    train = TrajectoryDataset(*extract_fixed_sized_segments(dataset, train_crime_trajectories, input_length=segment_length))
+#dont forget to add vit_Frames if you want spatial information included
+
+    train = TrajectoryDataset(*extract_fixed_sized_segments(dataset, train_crime_trajectories, input_length=segment_length),vit_frames=train_frames if multimodal else None)
     # train_frames = torch.Tensor()
-    print("Training data")
-    print(len(train))
+    # print("Training data")
+    # print(len(train))
     # print(test_frames)
-    test = TrajectoryDataset(*extract_fixed_sized_segments(dataset, test_crime_trajectories, input_length=segment_length))
+    test = TrajectoryDataset(*extract_fixed_sized_segments(dataset, test_crime_trajectories, input_length=segment_length),vit_frames=test_frames if multimodal else None)
     # test_frames = 
+
+    #load training and test frames numpy memmap
 
     def collator_for_lists(batch):
         '''
@@ -339,18 +376,33 @@ def train_model(embed_dim, epochs):
         '''
         # assert all('sentences' in x for x in batch)
         # assert all('label' in x for x in batch)
-        start = time.time()
-        a = {
-            'id': [x['id'] for x in batch],
-            'videos': [x['videos'] for x in batch],
-            'persons': [x['persons'] for x in batch],
-            'frames': torch.tensor(np.array([x['frames'] for x in batch])),
-            'categories': torch.tensor(np.array([x['categories'] for x in batch])),
-            'coordinates': torch.tensor(np.array([x['coordinates'] for x in batch])),
-            # 'extracted_frames': torch.tensor([np.array(i["extracted_frames"]) for i in batch])
-            # 'extracted_frames':torch.stack(list(map(lambda x: torch.tensor(x['extracted_frames']), batch))) 
-            'extracted_frames':torch.stack(list(map(lambda x: extract_frames(x['id'],x['frames']), batch))) 
-        }
+        # with ThreadPoolExecutor(max_workers=32) as executor:
+        #     X = list(executor.map(lambda x: extract_frames(x['id'],x['frames']), batch))
+        # print(X)
+
+        if multimodal:
+            a = {
+                'id': [x['id'] for x in batch],
+                'videos': [x['videos'] for x in batch],
+                'persons': [x['persons'] for x in batch],
+                'frames': torch.tensor(np.array([x['frames'] for x in batch])),
+                'categories': torch.tensor(np.array([x['categories'] for x in batch])),
+                'coordinates': torch.tensor(np.array([x['coordinates'] for x in batch])),
+                # 'extracted_frames': torch.tensor([np.array(i["extracted_frames"]) for i in batch])
+                # 'extracted_frames':torch.stack(list(map(lambda x: torch.tensor(x['extracted_frames']), batch))) 
+                'extracted_frames':torch.stack([x["extracted_frames"] for x in batch]) 
+                # 'extracted_frames':torch.stack(X) 
+            }
+        else:
+            a = {
+                'id': [x['id'] for x in batch],
+                'videos': [x['videos'] for x in batch],
+                'persons': [x['persons'] for x in batch],
+                'frames': torch.tensor(np.array([x['frames'] for x in batch])),
+                'categories': torch.tensor(np.array([x['categories'] for x in batch])),
+                'coordinates': torch.tensor(np.array([x['coordinates'] for x in batch])),
+          # 'extracted_frames':torch.stack(X) 
+            }
         # logger.info(f"Total time to retrieve : {abs(start-time.time())}")
         return a
          
@@ -359,10 +411,14 @@ def train_model(embed_dim, epochs):
 
     logger.info('No. of trajectories to train: %s', len(train_crime_trajectories))
     
-    logger.info("Starting K-Fold")
-
+    logger.info("Starting stratified K-Fold")
+    # splitter = StratifiedShuffleSplit(n_splits=n,train_size=train_size,test_size=test_size,random_state=1)
+    skf = StratifiedKFold(n_splits=n,shuffle=True,random_state=42)
+    y = list(map(lambda x: x[0], train.categories))
+    
+    # StratifiedKFold
     # K-fold Cross Validation model evaluation
-    for fold, (train_ids, val_ids) in enumerate(kf.split(train.trajectory_ids()), 1):
+    for fold, (train_ids, val_ids) in enumerate(skf.split(train.trajectory_ids(),y), 1):
         logger.info('\nfold: %d, train: %d, test: %d', fold, len(train_ids), len(val_ids))
 
         logger.info("Creating Train and Validation subsets.")
@@ -372,8 +428,8 @@ def train_model(embed_dim, epochs):
 
         logger.info("Creating Train and Validation dataloaders.")
 
-        train_dataloader = torch.utils.data.DataLoader(train_subset, batch_size = batch_size, shuffle=True, collate_fn=collator_for_lists,num_workers=24,pin_memory=True,persistent_workers=True)
-        val_dataloader = torch.utils.data.DataLoader(val_subset, batch_size = batch_size, shuffle=True, collate_fn=collator_for_lists,num_workers=24,pin_memory=True,persistent_workers=True)
+        train_dataloader = torch.utils.data.DataLoader(train_subset, batch_size = batch_size, shuffle=True, collate_fn=collator_for_lists,num_workers=cfg['DATALOADING']['NUM_WORKERS'],pin_memory=cfg['DATALOADING']['PIN_MEMORY'],persistent_workers=cfg['DATALOADING']['PERSISTENT_WORKERS'])
+        val_dataloader = torch.utils.data.DataLoader(val_subset, batch_size = batch_size, shuffle=True, collate_fn=collator_for_lists,num_workers=cfg['DATALOADING']['NUM_WORKERS'],pin_memory=cfg['DATALOADING']['PIN_MEMORY'],persistent_workers=cfg['DATALOADING']['PERSISTENT_WORKERS'])
         
         print("Train size: ")
         print(len(train_dataloader))
@@ -382,8 +438,8 @@ def train_model(embed_dim, epochs):
         logger.info("Creating the model.")
         #intialize model
         if cfg['MODEL']['MODEL_TYPE'] == 'temporal':
-            print("Using Temporal")
-            # model = TemporalTransformer(embed_dim=embed_dim, num_frames=segment_length, num_classes=num_classes, num_joints=num_joints, in_chans=in_chans, mlp_ratio=2., qkv_bias=True, qk_scale=None, dropout=0.1)
+            # print("Using Temporal")
+            model = TemporalTransformer(embed_dim=embed_dim, num_frames=segment_length, num_classes=num_classes, num_joints=num_joints, in_chans=in_chans, mlp_ratio=2., qkv_bias=True, qk_scale=None, dropout=0.1)
         elif cfg['MODEL']['MODEL_TYPE'] == 'temporal_2':
             model = TemporalTransformer_2(embed_dim=embed_dim, num_frames=segment_length, num_classes=num_classes, num_joints=num_joints, in_chans=in_chans, mlp_ratio=2., qkv_bias=True, qk_scale=None, dropout=0.1)
         elif cfg['MODEL']['MODEL_TYPE'] == 'temporal_3':
@@ -424,20 +480,57 @@ def train_model(embed_dim, epochs):
             
             # model_2 = ResNet(embed_dim=embed_dim)
             # if data_parallelism:
-            #     model_single = ensemble(model_1,model_2,input_dim=2*embed_dim,output_dim=num_classes,device=device)
+            model = ensemble(model_1,model_2,input_dim=2*embed_dim,output_dim=num_classes)
             #     model = DataParallel(model_single)
             #     # model =  DDP(model_single)
 
             # else:
                 # model = DataParallel(model)
                 # model=model_1
-        print("Using FusionModal Temporal transformer")
-        if cfg['MODEL']['MODEL_TYPE'] == 'temporal':
+        # print("Using FusionModal Temporal transformer")
+        elif cfg['MODEL']['MODEL_TYPE'] == 'temporal_fusion':
             # model_2 = vit_model(embed_dim=embed_dim,in_channel=768,out_channel=embed_dim)
+            # if (cfg["FUSION"]["FUSION_TYPE"]=="el") or (cfg["FUSION"]["FUSION_TYPE"]=="l"):
+            #     embed_fusion = cfg["MODEL"]["EMBED_DIM"]//2
+            # else:
+            #     embed_fusion = cfg["MODEL"]["EMBED_DIM"] 
+            # # fusion=cfg["FUSION"]["FUSION_TYPE"]
+            # # print(f"Fusion type : '{self.fusion}'")
+            # # self.embed_fusion = kwargs["embed_dim"] if (fusion_type!="el" or fusion_type!="l") else kwargs["embed_dim"]//2 #Embedding dimesnion is split so that, 64//2 -> 32 for ViT 32 for Temporal transformer
 
-            model = FusionModel_TemporalTransformer(fusion_type="el",cross_attention=False,embed_dim=embed_dim, num_frames=segment_length,
+    
+            # model_2 = VisionTransformer(image_size= 224,
+            #     patch_size= 16,
+            #     num_layers= 4,
+            #     num_heads= 6,
+            #     hidden_dim= 60,
+            #     mlp_dim= 40,
+            #     dropout=   0.0,
+            #     attention_dropout=   0.0,
+            #     num_classes=  embed_fusion,
+            # )
+            # model = FusionModel_TemporalTransformer(fusion_type=None if not cfg["FUSION"]["FUSION_TYPE"] else cfg["FUSION"]["FUSION_TYPE"],cross_attention=cfg["CROSS_ATTENTION"]["CROSS_ATTENTION_ENABLE"],embed_dim=embed_dim, num_frames=segment_length,
+            #                                             num_classes=num_classes, num_joints=num_joints, in_chans=in_chans, mlp_ratio=2.,
+            #                                         qkv_bias=True, qk_scale=None, dropout=0.1)
+            
+            # model = FusionModel_TemporalTransformer(fusion_type=None if not cfg["FUSION"]["FUSION_TYPE"] else cfg["FUSION"]["FUSION_TYPE"],cross_attention=cfg["CROSS_ATTENTION"]["CROSS_ATTENTION_ENABLE"],num_classes=19, num_frames=20, num_joints=17, in_chans=2, embed_dim=64, depth=4,
+            #      num_heads=8, mlp_ratio=2., qkv_bias=True, qk_scale=None,
+            #      drop_rate=0., attn_drop_rate=0., dropout=0.2)
+            # model = TemporalTransformer_nmap(num_classes=19, num_frames=20, num_joints=17, in_chans=2, embed_dim=64, depth=4,
+            #      num_heads=8, mlp_ratio=2., qkv_bias=True, qk_scale=None,
+            #      drop_rate=0., attn_drop_rate=0., dropout=0.2)
+            
+            # model = TemporalTransformer_nmap(embed_dim=embed_dim, num_frames=segment_length,
+            #                                             num_classes=num_classes, num_joints=num_joints, in_chans=in_chans, mlp_ratio=2.,
+            #                                         qkv_bias=True, qk_scale=None, dropout=0.1)
+                        
+            model = TemporalTransformer_nmap_lfusion(embed_dim=embed_dim, num_frames=segment_length,
                                                         num_classes=num_classes, num_joints=num_joints, in_chans=in_chans, mlp_ratio=2.,
                                                     qkv_bias=True, qk_scale=None, dropout=0.1)
+            # model= TemporalTransformer_CrossAttention(embed_dim=embed_dim, num_frames=segment_length, depth=2,
+            #                                         num_heads=4,
+            #                                             num_classes=num_classes, num_joints=num_joints, in_chans=in_chans, mlp_ratio=2.,
+            #                                         qkv_bias=True, qk_scale=None, dropout=0.1)
                 # print("Early and late fusion")
                 # model = ensemble(model_1,model_2,input_dim=2*embed_dim,output_dim=num_classes)
                 
@@ -481,6 +574,9 @@ def train_model(embed_dim, epochs):
         
         #print('start looping over epochs at', time.time())
         best_epoch = -1
+        torch.cuda.empty_cache()
+
+
         
         for epoch in range(1, epochs+1):
 
@@ -499,11 +595,17 @@ def train_model(embed_dim, epochs):
                 
 
                 # start = time.time()
-                ids, videos, persons, frames, data, categories,extracted_frames = batch['id'], batch['videos'], batch['persons'], batch['frames'], batch['coordinates'], batch['categories'],batch['extracted_frames']
+                if multimodal:
+                    ids, videos, persons, frames, data, categories,extracted_frames = batch['id'], batch['videos'], batch['persons'], batch['frames'], batch['coordinates'], batch['categories'],batch['extracted_frames']
+                else:
+                    ids, videos, persons, frames, data, categories = batch['id'], batch['videos'], batch['persons'], batch['frames'], batch['coordinates'], batch['categories']
+
+                # ids, videos, persons, frames, data, categories = batch['id'], batch['videos'], batch['persons'], batch['frames'], batch['coordinates'], batch['categories']
                 # print(extracted_frames.size())
-                extracted_frames = rearrange(extracted_frames,"b h w c -> b c h w")
-                # print(extracted_frames.size())
-                
+                # extracted_frames = rearrange(extracted_frames,"b h w c -> b c h w")
+                # print(data.shape)
+                # print(extracted_frames.shape)
+                # print(c)
                 # ids, videos, persons, frames, data, categories = batch['id'], batch['videos'], batch['persons'], batch['frames'], batch['coordinates'], batch['categories']
                 # logger.info(f"Loading frame in memory time :{abs(time.time()-start)}")
                 # print(data.size())
@@ -534,8 +636,8 @@ def train_model(embed_dim, epochs):
                 # videos = videos
                 # persons = persons
                 # frames = frames.to(device)
-
-                extracted_frames = extracted_frames.to(device,non_blocking=True)
+                if multimodal:
+                    extracted_frames = extracted_frames.to(device,non_blocking=True)
 
                 data = data.to(device,non_blocking=True)
 
@@ -544,10 +646,13 @@ def train_model(embed_dim, epochs):
                 
                 optim.zero_grad(set_to_none=True)
                 start = time.time()
-                output = model(data,extracted_frames)
+                if multimodal:
+                    output = model(data,extracted_frames)
+                else:
+                    output = model(data)
                 # output = model(data)
                 # print(f"Output of model time :{abs(time.time()-start)}")
-                logger.info(f"Output of model time :{abs(time.time()-start)}")
+                # logger.info(f"Output of model time :{abs(time.time()-start)}")
 
                 # print(output.shape)
                 loss = cross_entropy_loss(output, labels)
@@ -557,9 +662,9 @@ def train_model(embed_dim, epochs):
                 start = time.time()
                 optim.step()
                 # logger.info(f"Optimizer step : {abs(time.time()-start)}")
-
+                torch.cuda.empty_cache()
                 train_loss += loss.item() * labels.size(0) # Multiplied by size since CEloss returns loss.item as loss per sample
-                if (iter%100==0):
+                if (iter%10000==0):
                     logger.info(f"Completed {iter}/{len(train_dataloader)} Iterations")
 
                 train_outputs = torch.cat((train_outputs, output), 0)
@@ -625,7 +730,7 @@ def train_model(embed_dim, epochs):
                 best_model = torch.load(PATH)
 
                 # Evaluate model on test set after training
-                test_dataloader = torch.utils.data.DataLoader(test, batch_size=batch_size, shuffle=True, collate_fn=collator_for_lists,num_workers=24,pin_memory=True,persistent_workers=True)
+                test_dataloader = torch.utils.data.DataLoader(test, batch_size=batch_size, shuffle=True, collate_fn=collator_for_lists,num_workers=cfg['DATALOADING']['NUM_WORKERS'],pin_memory=cfg['DATALOADING']['PIN_MEMORY'],persistent_workers=cfg['DATALOADING']['PERSISTENT_WORKERS'])
                 _, all_log_likelihoods, all_labels, all_videos, all_persons = evaluation(best_model, test_dataloader)
 
                 # the class with the highest log-likelihood is what we choose as prediction
@@ -689,9 +794,13 @@ def evaluation(model, data_loader):
     with torch.no_grad():
         cross_entropy_loss = nn.CrossEntropyLoss()
         for batch in data_loader:
-            ids, videos, persons, frames, data, categories,extracted_frames = batch['id'], batch['videos'], batch['persons'], batch['frames'], batch['coordinates'], batch['categories'],batch['extracted_frames']
+            if multimodal:
+                ids, videos, persons, frames, data, categories,extracted_frames = batch['id'], batch['videos'], batch['persons'], batch['frames'], batch['coordinates'], batch['categories'],batch['extracted_frames']
+            else:
+                ids, videos, persons, frames, data, categories = batch['id'], batch['videos'], batch['persons'], batch['frames'], batch['coordinates'], batch['categories']
+            # ids, videos, persons, frames, data, categories = batch['id'], batch['videos'], batch['persons'], batch['frames'], batch['coordinates'], batch['categories']
             # video_frames = extract_frames(ids,frames)
-            extracted_frames = rearrange(extracted_frames,"b h w c -> b c h w")
+            # extracted_frames = rearrange(extracted_frames,"b h w c -> b c h w")
             
             
             # print("Person variable")
@@ -713,8 +822,10 @@ def evaluation(model, data_loader):
             data = data.to(device)
             # if cfg['TUBELET']['ENABLE']:
             #     data = rearrange(data, 'b f (h w c) -> b c f h w', h=5, w=5, c=2)
-                
-            outputs = model(data,video_frames)
+            if multimodal:
+                outputs = model(data,video_frames)
+            else:
+                outputs = model(data)
 
             loss = cross_entropy_loss(outputs, labels)  
             loss_total += loss.item() * labels.size(0)

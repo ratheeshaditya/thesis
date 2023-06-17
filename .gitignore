@@ -4,3 +4,6 @@ mlruns
 data/
 context_dataset.hdf5
 parallelDistributed.sh
+good context img/
+attention_visualize/
+npy_data/

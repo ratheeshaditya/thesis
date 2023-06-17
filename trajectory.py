@@ -24,6 +24,20 @@ def get_UTK_categories():
 def get_NTU_categories():
     return NTU_categories    
 
+
+def getVideoPath(ids,path="/deepstore/datasets/dmb/MachineLearning/HRC/HRC_files/UCF_Videos"):
+    # print(ids)
+    getVideoFiles = ids
+    file = getVideoFiles.split("_")[0]
+    
+    videoDir = file[:-3] 
+
+    videofile = file +"_x264.mp4"
+
+    video_path = os.path.join(path,videoDir,videofile)
+
+    return video_path
+
 class Trajectory:
     '''
     A class which stores the data of a single Trajectory.
@@ -36,9 +50,10 @@ class Trajectory:
         #self.is_global = False
         self.category = category #crime category: Abuse etc. 
         self.dimension = 2 if dimension=='2D' else 3
-        
+        # self.path = getVideoPath(self.trajectory_id)
     def __len__(self):
         return len(self.frames)
+
 
     def extract_frames(self,ids,frame_list,path="/deepstore/datasets/dmb/MachineLearning/HRC/HRC_files/UCF_Videos"):
             
@@ -79,7 +94,7 @@ class TrajectoryDataset(Dataset):
     A dataset to store the trajectories. This should be more efficient than using just arrays.
     Also should be efficient with dataloaders.
     """
-    def __init__(self, trajectory_ids, trajectory_videos, trajectory_persons, trajectory_frames, trajectory_categories, X):
+    def __init__(self, trajectory_ids, trajectory_videos, trajectory_persons, trajectory_frames, trajectory_categories, X,vit_frames=None):
         self.ids = trajectory_ids.tolist()
         print("list of ids")
         print(len(self.ids))
@@ -88,51 +103,27 @@ class TrajectoryDataset(Dataset):
         self.frames = trajectory_frames
         self.categories = trajectory_categories
         self.coordinates = X
-        
-        # cold_start = np.stack([extract_frames(self.ids[i],self.frames[i]) for i in range(1000)])
-        # f = h5py.File('context_dataset.hdf5','a')
-        # start_idx= 1000
-        # cold_start = np.stack([extract_frames(self.ids[i],self.frames[i]) for i in range(start_idx)])
-
-        # f.create_dataset("context_data", data=cold_start,maxshape=(None,224,224,3),compression="gzip")
-        # print("Creating h5py file with compression on all data")
-        # cold_start =[]
-        # for i in range(start_idx,len(self.ids)):
-        #     cold_start.append(extract_frames(self.ids[i+1],self.frames[i+1]))
-        #     cold_start = np.stack(cold_start,axis=0)
-        #     if (i + 1) % 1000 == 0 or (i + 1) == len(self.ids):
-        #         f["context_data"].resize((f["context_data"].shape[0] + cold_start.shape[0]), axis = 0)
-        #         f["context_data"][-cold_start.shape[0]:] = cold_start
-        #         cold_start=[]
-        #     if i%100000:
-        #         print("Completed")
-        # f.close()
-        # print("Created H5py file")
+        self.vit_frames = vit_frames
+        self.path = [getVideoPath(i[0]) for i in self.ids]
+        print("Loaded paths and stuffs")
+ 
     def __len__(self):
         return len(self.ids)
 
-    def extract_frames(self,ids,coordinates,frame_list,path="/deepstore/datasets/dmb/MachineLearning/HRC/HRC_files/UCF_Videos"):
+    def extract_frames(self,idx,frame_list,path="/deepstore/datasets/dmb/MachineLearning/HRC/HRC_files/UCF_Videos"):
         
-        getVideoFiles = ids[0]
-        
-        file = getVideoFiles.split("_")[0]
-        
-        videoDir = file[:-3] 
 
-        videofile = file +"_x264.mp4"
 
-        video_path = os.path.join(path,videoDir,videofile)
-
-        cap = cv2.VideoCapture(video_path) 
+        cap = cv2.VideoCapture(self.path[idx]) 
 
         middle_frame = frame_list[len(frame_list)//2].item()
         
         cap.set(1,middle_frame) 
 
         ret, frame = cap.read()
-        # dim = (224,224)
+        dim = (224,224)
 
-        # resized = cv2.resize(frame, dim, interpolation = cv2.INTER_AREA)
+        resized = cv2.resize(frame, dim, interpolation = cv2.INTER_AREA)
 
         # frame = rearrange(resized,"h w c -> c h w")
         return frame/255.0
@@ -148,10 +139,13 @@ class TrajectoryDataset(Dataset):
         data['frames'] = self.frames[idx]
         data['categories'] = self.categories[idx]
         data['coordinates'] = self.coordinates[idx]
+        data['path'] = self.path[idx]
+        
         # data['context'] = self.context[idx]
         # print("Extracted frames time ")
         # start = time.time()
-        data['extracted_frames'] = self.extract_frames(self.ids[idx],self.coordinates[idx],self.frames[idx])
+        # data['extracted_frames'] = self.extract_frames(idx,self.frames[idx])
+        data['extracted_frames'] = torch.from_numpy(np.array(self.vit_frames[idx])) if self.vit_frames is not None else None
         # data['extracted_frames'] = self.context_frames[idx]
         # print(f"Extracted frames : {abs(start-time.time())}")
         return data
@@ -249,11 +243,10 @@ def extract_fixed_sized_segments(dataset, trajectories, input_length):
     '''
     Given a dataset of trajectories, divide each of them into segments and return a whole bunch of segments.
     '''
-    trajectories_ids, videos, persons, frames, categories, X,context = [], [], [], [], [], [],[]
+    trajectories_ids, videos, persons, frames, categories, X,video_path = [], [], [], [], [], [],[]
 
     for trajectory in trajectories.values():
         traj_id, video_id, person_id, traj_frames, traj_category, traj_X = _extract_fixed_sized_segments(dataset, trajectory, input_length)
-        
         
         trajectories_ids.append(traj_id)
         frames.append(traj_frames)
@@ -261,9 +254,10 @@ def extract_fixed_sized_segments(dataset, trajectories, input_length):
         X.append(traj_X)
         videos.append(video_id)
         persons.append(person_id)
+        # video_path.append(getVideoPath(traj_id))
         # frame = extract_frames(traj_id[0],traj_frames[0])
         # context.append(frame)
-
+    # print(trajectories_ids)
     # context = torch.stack(context)
     # print("Context shape")
     # print(context.shape)              

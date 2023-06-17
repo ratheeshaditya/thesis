@@ -296,8 +296,8 @@ class Block(nn.Module):
         return x
         
 class TemporalTransformer(nn.Module):
-    def __init__(self, num_classes=13, num_frames=12, num_joints=17, in_chans=2, embed_dim=64, depth=4,
-                 num_heads=8, mlp_ratio=2., qkv_bias=True, qk_scale=None,
+    def __init__(self, num_classes=13, num_frames=12, num_joints=17, in_chans=2, embed_dim=64, depth=2,
+                 num_heads=4, mlp_ratio=2., qkv_bias=True, qk_scale=None,
                  drop_rate=0., attn_drop_rate=0., dropout=0.2):
         """    ##########hybrid_backbone=None, representation_size=None,
         Args:
@@ -321,7 +321,8 @@ class TemporalTransformer(nn.Module):
         print('embed_dim', embed_dim)
         print('in_chans', in_chans)
         print('num_joints', num_joints)
-
+        print('num_heads',num_heads)
+        print('depth',depth)
         ### patch embedding
         self.embedding = nn.Linear(num_joints*in_chans, embed_dim)
 
@@ -395,7 +396,7 @@ class TemporalTransformer(nn.Module):
         #print(f"x + self.pos_embed shape: {(x + self.pos_embed).shape}")
 
         x = self.pos_drop(x + self.pos_embed)
-        print(f"pos_drop x shape: {x.shape}")
+        # print(f"pos_drop x shape: {x.shape}")
 
         #x = self.blocks(x)
         for blk in self.blocks:
@@ -405,23 +406,23 @@ class TemporalTransformer(nn.Module):
         x = self.norm(x)
         # print("x shape:", x.shape)
         cls_token_final = x[:, 0]
-        print(cls_token_final.size())
+        # print(cls_token_final.size())
         #return self.pre_logits(x[:, 0])
         return cls_token_final
     
     def forward(self, x):
         x = self.forward_features(x)
-        print(x.size())
+        # print(x.size())
         x = self.head(x)
-        print(x.size())
+        # print(x.size())
         x = F.log_softmax(x, dim=1)
         return x
 
 
 #input 34 values (one per 2D joint) and the vector describes the window of how the joint value fluctuates 
 class TemporalTransformer_2(nn.Module):
-    def __init__(self, num_classes=13, num_frames=12, num_joints=17, in_chans=2, embed_dim=64, depth=4,
-                 num_heads=8, mlp_ratio=2., qkv_bias=True, qk_scale=None,
+    def __init__(self, num_classes=13, num_frames=12, num_joints=17, in_chans=2, embed_dim=64, depth=3,
+                 num_heads=4, mlp_ratio=2., qkv_bias=True, qk_scale=None,
                  drop_rate=0., attn_drop_rate=0., dropout=0.2):
         """    ##########hybrid_backbone=None, representation_size=None,
         Args:
@@ -648,7 +649,7 @@ class TemporalTransformer_3(nn.Module):
         #print(f"pos_embed shape: {self.pos_embed.shape}")
         #print(f"x + self.pos_embed shape: {(x + self.pos_embed).shape}")
 
-        x = self.pos_drop(x + self.pos_embed)
+        # x = self.pos_drop(x + self.pos_embed)
         #print(f"pos_drop x shape: {x.shape}")
 
         #x = self.blocks(x)
@@ -2955,28 +2956,6 @@ class ensemble(nn.Module): #takes in tublete embedding
 
 #Cross attention implementation
 
-
-    
-class Mlp(nn.Module):
-    """ MLP as used in Vision Transformer, MLP-Mixer and related networks
-    """
-    def __init__(self, in_features, hidden_features=None, out_features=None, act_layer=nn.GELU, drop=0.):
-        super().__init__()
-        out_features = out_features or in_features
-        hidden_features = hidden_features or in_features
-        self.fc1 = nn.Linear(in_features, hidden_features)
-        self.act = act_layer()
-        self.fc2 = nn.Linear(hidden_features, out_features)
-        self.drop = nn.Dropout(drop)
-
-    def forward(self, x):
-        x = self.fc1(x)
-        x = self.act(x)
-        x = self.drop(x)
-        x = self.fc2(x)
-        x = self.drop(x)
-        return x
-    
 class CrossAttention(nn.Module):
     def __init__(self, dim, num_heads=8, qkv_bias=False, qk_scale=None, attn_drop=0., proj_drop=0.,return_attention=True):
         super().__init__()
@@ -2990,48 +2969,36 @@ class CrossAttention(nn.Module):
         self.proj_drop = nn.Dropout(proj_drop)
         self.cross_attn_scores = None
 
+        self.project_skeleton = nn.Linear(dim,dim)
+        self.project_context_key = nn.Linear(dim,dim)
+        self.project_context_value = nn.Linear(dim,dim)
+        
     def forward(self, encoder_1,encoder_2): 
-        #encoder_1 skeleton trajectories, encoder_2 visual information
-        #value = output of model which contains skeleton trajectories, #query and key model which consists of spatial information
         # print(encoder_1.shape)
         # print(encoder_2.shape)
+
         B, N,C = encoder_1.shape #Batch, segment length, embed dim
-      
+        # print(B,N,C)
         q, k, v = encoder_1, encoder_2, encoder_2   # make torchscript happy (cannot use tensor as tuple)
-        #torch.Size([1, 100, 64])
-        
-        q = q.reshape(B,N,self.num_heads,C//self.num_heads).permute(0,2,1,3) #batch,segment length, num_heads,embed dim/num_head
 
-        k = k.reshape(B,1,self.num_heads,C//self.num_heads).permute(0,2,1,3) #same
-        v = k
-        print(q)
-        print(k)
-        # print("reshapoed key ", k.size())
-        # print(q.size())
-        # B,N,C = encoder_2.shape
-        # print(v.size())
-        # v = v.squeeze()
+        q = self.project_skeleton(q).reshape(B,N,self.num_heads,C//self.num_heads).permute(0,2,1,3) #batch,segment length, num_heads,embed dim/num_head
+        k = self.project_context_key(k).reshape(B,1,self.num_heads,C//self.num_heads).permute(0,2,1,3) #same
+        # print(f"Query : {q.shape} ")
+        # print(f"Key : {k.shape} ")
+        attention = q@k.transpose(-2,-1)
+        attention_weights = nn.Softmax(dim=2)(attention)
+        self.cross_attn_scores=attention_weights
+        # print(attention_weights.size())
+        v = self.project_context_value(v).reshape(B,1,self.num_heads,C//self.num_heads).permute(0,2,1,3)
+        final = (attention_weights@v).reshape(B, N, C)
 
-        attn = (q @ k.transpose(-2, -1)) * self.scale  # [100, 4, 21, 1]) [100, 4, segment legnth, 1 for each context]) 
-        # print(q@k.transpose(-2,-1))
-        attn = attn.softmax(dim=-1)
-        print(attn.size())
-        self.cross_attn_scores = attn
-        attn = self.attn_drop(attn)
-    
-
-        x = ((attn @ v)).reshape(B, N, C)
-
-            
-        x = self.proj(x)
-        
-        x = self.proj_drop(x)
-
-        return x
-
+        return final
+        # print(final.size())
+        # print(k)
+        # return
 class CrossAttentionBlock(nn.Module):
 
-    def __init__(self,dim, num_heads, mlp_ratio=4., qkv_bias=False, qk_scale=None, drop=0., attn_drop=0.,
+    def __init__(self, dim, num_heads, mlp_ratio=4., qkv_bias=False, qk_scale=None, drop=0., attn_drop=0.,
                  dropout=0., act_layer=nn.GELU):
         super().__init__()
         self.norm1 = nn.LayerNorm(dim, eps=1e-6)
@@ -3047,9 +3014,89 @@ class CrossAttentionBlock(nn.Module):
         #architecture taken from these paper https://arxiv.org/pdf/2204.04564.pdf
 
         x = self.dropout(self.attn(encoder_1,encoder_2))
-        x = self.norm2(encoder_2.permute(1,0,2) +x)
+
+        x = self.norm2(encoder_1+x)
         x = self.mlp(x)
         return x
+
+    
+# class CrossAttention(nn.Module):
+#     def __init__(self, dim, num_heads=8, qkv_bias=False, qk_scale=None, attn_drop=0., proj_drop=0.,return_attention=True):
+#         super().__init__()
+#         self.num_heads = num_heads
+#         head_dim = dim // num_heads
+#         # NOTE scale factor can be manually set to be compat with prev weights
+#         self.scale = qk_scale or head_dim ** -0.5
+#         self.qkv = nn.Linear(dim, dim * 3, bias=qkv_bias)
+#         self.attn_drop = nn.Dropout(attn_drop)
+#         self.proj = nn.Linear(dim, dim)
+#         self.proj_drop = nn.Dropout(proj_drop)
+#         self.cross_attn_scores = None
+
+#         self.project_skeleton = nn.Linear(dim,dim)
+#         self.project_context_key = nn.Linear(dim,dim)
+#         self.project_context_value = nn.Linear(dim,dim)
+
+
+#     def forward(self, encoder_1,encoder_2): 
+#         #encoder_1 skeleton trajectories, encoder_2 visual information
+#         #value = output of model which contains skeleton trajectories, #query and key model which consists of spatial information
+#         # print(encoder_1.shape)
+#         # print(encoder_2.shape)
+#         B, N,C = encoder_1.shape #Batch, segment length, embed dim
+      
+#         q, k, v = encoder_1, encoder_2, encoder_2   # make torchscript happy (cannot use tensor as tuple)
+#         #torch.Size([1, 100, 64])
+        
+#         q = self.project_skeleton(q).reshape(B,N,self.num_heads,C//self.num_heads).permute(0,2,1,3) #batch,segment length, num_heads,embed dim/num_head
+
+#         k = self.project_context_key(k).reshape(B,1,self.num_heads,C//self.num_heads).permute(0,2,1,3) #same
+#         v = self.project_context_value(k).reshape(B,1,self.num_heads,C//self.num_heads).permute(0,2,1,3)
+
+#         # print("reshapoed key ", k.size())
+#         # print(q.size())
+#         # B,N,C = encoder_2.shape
+#         # print(v.size())
+#         # v = v.squeeze()
+
+#         attn = (q @ k.transpose(-2, -1)) * self.scale  # [100, 4, 21, 1]) [100, 4, segment legnth, 1 for each context]) 
+#         # print(q@k.transpose(-2,-1))
+#         attn = attn.softmax(dim=-2)
+   
+#         self.cross_attn_scores = attn
+#         attn = self.attn_drop(attn)
+    
+
+#         x = ((attn @ v)).reshape(B, N, C)
+
+            
+#         x = self.proj(x)
+        
+#         x = self.proj_drop(x)
+
+#         return x
+
+# class CrossAttentionBlock(nn.Module):
+
+#     def __init__(self,dim, num_heads, mlp_ratio=4., qkv_bias=False, qk_scale=None, drop=0., attn_drop=0.,
+#                  dropout=0., act_layer=nn.GELU):
+#         super().__init__()
+#         self.norm1 = nn.LayerNorm(dim, eps=1e-6)
+#         self.attn = CrossAttention(dim, num_heads=num_heads, qkv_bias=qkv_bias, qk_scale=qk_scale, attn_drop=attn_drop, proj_drop=drop)
+#         # NOTE: drop path for stochastic depth, we shall see if this is better than dropout here
+#         #self.drop_path = DropPath(drop_path) if drop_path > 0. else nn.Identity()
+#         self.dropout = nn.Dropout(dropout) #first try a simple dropout instead of drop path
+#         self.norm2 = nn.LayerNorm(dim, eps=1e-6)
+#         mlp_hidden_dim = int(dim * mlp_ratio)
+#         self.mlp = Mlp(in_features=dim, hidden_features=mlp_hidden_dim, act_layer=act_layer, drop=drop)
+        
+#     def forward(self, encoder_1,encoder_2):
+#         #architecture taken from these paper https://arxiv.org/pdf/2204.04564.pdf
+
+#         x = self.dropout(self.attn(encoder_1,encoder_2))
+#         x = self.norm2(encoder_2.permute(1,0,2) +x)
+#         x = self.mlp(x)
+#         return x
     
 
 
@@ -3077,10 +3124,10 @@ class FusionModel_TemporalTransformer(TemporalTransformer):
 
         kwargs["embed_dim"]= self.embed_fusion
         super().__init__(*args, **kwargs)
-        
+                
         self.model_2 = VisionTransformer(image_size= 224,
-                patch_size= 8,
-                num_layers= 1,
+                patch_size= 16,
+                num_layers= 4,
                 num_heads= 6,
                 hidden_dim= 60,
                 mlp_dim= 40,
@@ -3220,3 +3267,487 @@ class FusionModel_TemporalTransformer(TemporalTransformer):
             return x
 
 
+
+
+
+
+class TemporalTransformerFusion(nn.Module):
+    def __init__(self, fusion_type="l",cross_attention=False,model_2=None,num_classes=13, num_frames=12, num_joints=17, in_chans=2, embed_dim=64, depth=4,
+                 num_heads=8, mlp_ratio=2., qkv_bias=True, qk_scale=None,
+                 drop_rate=0., attn_drop_rate=0., dropout=0.2):
+        """    ##########hybrid_backbone=None, representation_size=None,
+        Args:
+            num_classes (int): number of classes for classification head, HR-Crime constists of 13 crime categories
+            num_frames (int): number of input frames
+            num_joints (int): number of joints per skeleton
+            in_chans (int): number of input channels, 2D joints have 2 channels: (x,y)
+            embed_dim_ratio (int): embedding dimension ratio
+            depth (int): depth of transformer
+            num_heads (int): number of attention heads
+            mlp_ratio (int): ratio of mlp hidden dim to embedding dim
+            qkv_bias (bool): enable bias for qkv if True
+            qk_scale (float): override default qk scale of head_dim ** -0.5 if set
+            drop_rate (float): dropout rate
+            attn_drop_rate (float): attention dropout rate
+            drop_path_rate (float): stochastic depth rate
+        """
+        super().__init__()
+        
+        print('num_classes',num_classes)
+        print('embed_dim', embed_dim)
+        print('in_chans', in_chans)
+        print('num_joints', num_joints)
+
+        if (fusion_type=="el") or (fusion_type=="l"):
+            self.embed_fusion = embed_dim//2
+        else:
+            self.embed_fusion = embed_dim 
+        self.fusion=fusion_type
+        self.model_2 = model_2
+        ### patch embedding
+        self.embedding = nn.Linear(num_joints*in_chans, embed_dim)
+        self.need_crossattention = cross_attention
+        ### Additional class token
+        self.cls_token = nn.Parameter(torch.zeros(1, embed_dim))
+
+        ### positional embedding including class token
+        if self.fusion!=None:
+            if self.fusion!="l":
+                self.pos_embed = nn.Parameter(torch.zeros(num_frames+2, embed_dim))
+            else:
+                self.pos_embed = nn.Parameter(torch.zeros(num_frames+1, embed_dim))
+        else:
+            self.pos_embed = nn.Parameter(torch.zeros(num_frames+1, embed_dim))
+
+        self.pos_drop = nn.Dropout(p=drop_rate)
+
+        #dpr = [x.item() for x in torch.linspace(0, drop_path_rate, depth)]  # stochastic depth decay rule
+
+        self.blocks = nn.ModuleList([
+            Block(
+                dim=embed_dim, num_heads=num_heads, mlp_ratio=mlp_ratio, qkv_bias=qkv_bias, qk_scale=qk_scale,
+                drop=drop_rate, attn_drop=attn_drop_rate, dropout=dropout
+                 #drop_path=dpr[i] #first try a simple dropout instead of drop path
+                )
+            for i in range(depth)])
+        
+
+        self.norm = nn.LayerNorm(embed_dim, eps=1e-6)
+
+
+        #self.pre_logits = nn.Identity()
+
+        # Classifier head(s)
+        "Define standard linear + softmax generation step."
+        "use learned linear transformation and softmax function to convert the output to predicted class probabilities"
+        if (fusion_type=="el") or (fusion_type=="l") :
+            self.head = nn.Linear(self.embed_fusion*2+self.embed_fusion,num_classes)
+        else:
+            self.head = nn.Linear(self.embed_fusion,num_classes)
+        
+        # initialize weights
+        self.init_weights()
+
+        # taken from https://pytorch.org/tutorials/beginner/transformer_tutorial.html
+    def init_weights(self):
+          initrange = 0.1
+          self.embedding.weight.data.uniform_(-initrange, initrange)
+          self.head.bias.data.zero_()
+          self.head.weight.data.uniform_(-initrange, initrange)
+
+    def forward_features(self, x,image=None):
+        #print("call forward features")
+        # print(f"x shape: {x.shape}")
+
+        x = self.embedding(x)
+        # print("this")
+        # print(x.size())
+        if self.fusion!=None:
+            if self.fusion!="l":
+                img = self.model_2(image).unsqueeze(0)
+            # if (self.fusion=="el" or self.fusion=="l"):
+            #     self.model_2_output=img
+        else:
+            if self.need_crossattention:
+                img = self.model_2(image).unsqueeze(0)
+                self.model_2_output=img
+        # print(img.size())
+        # print("s")
+        #print(f"self cls_token shape: {self.cls_token.shape}")
+
+        #print("expand cls_token")
+        cls_token = self.cls_token.expand(x.shape[0], -1, -1)  # stole cls_tokens impl from Phil Wang, thanks
+
+        #print(f"expanded cls_token shape: {cls_token.shape}")
+        #print(f"embedded x shape: {x.shape}")
+
+        x = torch.cat((cls_token, x), dim=1)
+
+        # print(x.size())
+        if self.fusion is not None:
+            if self.fusion!="l":
+                img = torch.permute(img,(1,0,2))
+                x=torch.cat((x,img),dim=1)
+    
+        # print(x.size())
+        #print(f"embedded x + cls_token shape: {x.shape}")
+
+        #print(f"pos_embed shape: {self.pos_embed.shape}")
+        #print(f"x + self.pos_embed shape: {(x + self.pos_embed).shape}")
+
+        x = self.pos_drop(x + self.pos_embed)
+        # print(f"pos_drop x shape: {x.shape}")
+
+        #x = self.blocks(x)
+        for blk in self.blocks:
+            x = blk(x)
+            #print(f"blocks(x) shape: {x.shape}")
+
+        x = self.norm(x)
+        # print("x shape:", x.shape)
+        
+
+        if self.need_crossattention:
+            for cross_attention in self.cross_attention_block:
+                x = cross_attention(x,self.model_2_output)    
+        cls_token_final = x[:, 0]     
+        # if self.need_crossattention:
+        #     for i in self.cross_attention_block:
+        #         cls_token_final = i(cls_token_final,self.model_2_output)
+        #     return cls_token_final
+        #return self.pre_logits(x[:, 0])
+        return cls_token_final
+    
+    def forward(self,x,image=None):
+        if self.fusion=="e": #Early fusion temporal transformer
+            x = self.forward_features(x,image)
+            x = self.head(x)
+            x = F.log_softmax(x, dim=1)
+            #do early fusion here
+            return x
+        if self.fusion=="el": #Early & late fusion transformer
+            x = self.forward_features(x,image)
+            # print(torch.permute(self.model_2_output,(1,0,2)).size())
+            x = torch.concat([x,self.model_2_output.squeeze()],dim=1)
+            x = self.head(x)
+            x = F.log_softmax(x, dim=1)
+            return x
+
+        if self.fusion=="l": #late fusion transformer
+            x = self.forward_features(x)
+            print(x.size())
+            img = self.model_2(image).unsqueeze(0)
+            # print(x.size())
+            x = torch.concat([x,img.squeeze()],dim=1)
+            x = self.head(x)
+            x = F.log_softmax(x, dim=1)
+            return x
+
+        if self.fusion==None: #Regular temporal transformer
+            x = self.forward_features(x,image)
+            x = self.head(x)
+            x = F.log_softmax(x, dim=1)
+            return x
+        
+
+
+"""
+This is to test if the numpy memmap is worth it
+"""
+
+
+class TemporalTransformer_nmap(TemporalTransformer):
+    def __init__(self, *args,**kwargs):
+        """    ##########hybrid_backbone=None, representation_size=None,
+        Args:
+            num_classes (int): number of classes for classification head, HR-Crime constists of 13 crime categories
+            num_frames (int): number of input frames
+            num_joints (int): number of joints per skeleton
+            in_chans (int): number of input channels, 2D joints have 2 channels: (x,y)
+            embed_dim_ratio (int): embedding dimension ratio
+            depth (int): depth of transformer
+            num_heads (int): number of attention heads
+            mlp_ratio (int): ratio of mlp hidden dim to embedding dim
+            qkv_bias (bool): enable bias for qkv if True
+            qk_scale (float): override default qk scale of head_dim ** -0.5 if set
+            drop_rate (float): dropout rate
+            attn_drop_rate (float): attention dropout rate
+            drop_path_rate (float): stochastic depth rate
+        """
+        super().__init__(*args, **kwargs)
+
+        # self.embedding = nn.Linear(num_joints*in_chans, embed_dim//2)
+
+        self.align_dimension = nn.Linear(768,kwargs["embed_dim"]) # this is for the frames
+        self.pos_embed = nn.Parameter(torch.zeros(kwargs["num_frames"]+2, kwargs["embed_dim"]))
+        # initialize weights
+        self.init_weights()
+
+        # taken from https://pytorch.org/tutorials/beginner/transformer_tutorial.html
+    def init_weights(self):
+          initrange = 0.1
+          self.embedding.weight.data.uniform_(-initrange, initrange)
+          self.head.bias.data.zero_()
+          self.head.weight.data.uniform_(-initrange, initrange)
+
+    def forward_features(self, x,frames):
+
+        #print("call forward features")
+        # print(f"x shape: {x.shape}")
+
+        x = self.embedding(x)
+        # print(x.size())
+        descriptor_ = self.align_dimension(frames)
+        # print(f"After aligning {descriptor_.shape}" )
+        descriptor_ = descriptor_.unsqueeze(1)
+        # print(f"After unsqueezing {descriptor_.shape}")
+
+        # print(descriptor_.size())
+        # print(f"Joint size : {x.shape}")
+        # print(f"Descriptor size : {descriptor_.shape} ")
+        x = torch.cat((x,descriptor_),dim=1)
+        # print(x.shape)        
+
+
+        
+        #print(f"self cls_token shape: {self.cls_token.shape}")
+
+        #print("expand cls_token")
+        cls_token = self.cls_token.expand(x.shape[0], -1, -1)  # stole cls_tokens impl from Phil Wang, thanks
+        # print(f"Cls token {cls_token.shape}")
+        #print(f"expanded cls_token shape: {cls_token.shape}")
+        #print(f"embedded x shape: {x.shape}")
+
+        x = torch.cat((cls_token, x), dim=1)
+        # print(x.shape)
+        #print(f"embedded x + cls_token shape: {x.shape}")
+
+        #print(f"pos_embed shape: {self.pos_embed.shape}")
+        #print(f"x + self.pos_embed shape: {(x + self.pos_embed).shape}")
+
+        x = self.pos_drop(x + self.pos_embed)
+        # print(f"pos_drop x shape: {x.shape}")
+
+        #x = self.blocks(x)
+        for blk in self.blocks:
+            x = blk(x)
+            #print(f"blocks(x) shape: {x.shape}")
+
+        x = self.norm(x)
+        # print("x shape:", x.shape)
+        cls_token_final = x[:, 0]
+        # print(cls_token_final.size())
+        #return self.pre_logits(x[:, 0])
+        return cls_token_final
+    
+
+    def forward(self, x,frames):
+        x = self.forward_features(x,frames)
+        
+        x = self.head(x)
+    
+        x = F.log_softmax(x, dim=1)
+        return x
+
+
+
+"""
+late fusion only
+"""
+
+class TemporalTransformer_nmap_lfusion(TemporalTransformer):
+    def __init__(self, *args,**kwargs):
+        """    ##########hybrid_backbone=None, representation_size=None,
+        Args:
+            num_classes (int): number of classes for classification head, HR-Crime constists of 13 crime categories
+            num_frames (int): number of input frames
+            num_joints (int): number of joints per skeleton
+            in_chans (int): number of input channels, 2D joints have 2 channels: (x,y)
+            embed_dim_ratio (int): embedding dimension ratio
+            depth (int): depth of transformer
+            num_heads (int): number of attention heads
+            mlp_ratio (int): ratio of mlp hidden dim to embedding dim
+            qkv_bias (bool): enable bias for qkv if True
+            qk_scale (float): override default qk scale of head_dim ** -0.5 if set
+            drop_rate (float): dropout rate
+            attn_drop_rate (float): attention dropout rate
+            drop_path_rate (float): stochastic depth rate
+        """
+        super().__init__(*args, **kwargs)
+
+        # self.embedding = nn.Linear(num_joints*in_chans, embed_dim//2)
+
+        self.align_dimension = nn.Linear(768,kwargs["embed_dim"]) # this is for the frames
+        self.head = nn.Linear(kwargs["embed_dim"]*2,kwargs["num_classes"])
+        # self.pos_embed = nn.Parameter(torch.zeros(kwargs["num_frames"]+2, kwargs["embed_dim"]))
+        # initialize weights
+        self.init_weights()
+        self.conv_1d= nn.Conv1d(in_channels=1, out_channels=kwargs["embed_dim"], kernel_size=5, stride=1)
+        self.global_avgpool = nn.AdaptiveAvgPool1d(1)
+        # taken from https://pytorch.org/tutorials/beginner/transformer_tutorial.html
+    def init_weights(self):
+          initrange = 0.1
+          self.embedding.weight.data.uniform_(-initrange, initrange)
+          self.head.bias.data.zero_()
+          self.head.weight.data.uniform_(-initrange, initrange)
+
+    def forward_features(self, x):
+
+        #print("call forward features")
+        # print(f"x shape: {x.shape}")
+
+        x = self.embedding(x)
+        # print(x.size())
+        # descriptor_ = self.align_dimension(frames)
+        # print(f"After aligning {descriptor_.shape}" )
+        # descriptor_ = descriptor_.unsqueeze(1)
+        # print(f"After unsqueezing {descriptor_.shape}")
+
+        # print(descriptor_.size())
+        # print(f"Joint size : {x.shape}")
+        # print(f"Descriptor size : {descriptor_.shape} ")
+        # x = torch.cat((x,descriptor_),dim=1)
+        # print(x.shape)        
+
+
+        
+        #print(f"self cls_token shape: {self.cls_token.shape}")
+
+        #print("expand cls_token")
+        cls_token = self.cls_token.expand(x.shape[0], -1, -1)  # stole cls_tokens impl from Phil Wang, thanks
+        # print(f"Cls token {cls_token.shape}")
+        #print(f"expanded cls_token shape: {cls_token.shape}")
+        #print(f"embedded x shape: {x.shape}")
+
+        x = torch.cat((cls_token, x), dim=1)
+        # print(x.shape)
+        #print(f"embedded x + cls_token shape: {x.shape}")
+
+        #print(f"pos_embed shape: {self.pos_embed.shape}")
+        #print(f"x + self.pos_embed shape: {(x + self.pos_embed).shape}")
+
+        x = self.pos_drop(x + self.pos_embed)
+        # print(f"pos_drop x shape: {x.shape}")
+
+        #x = self.blocks(x)
+        for blk in self.blocks:
+            x = blk(x)
+            #print(f"blocks(x) shape: {x.shape}")
+
+        x = self.norm(x)
+        # print("x shape:", x.shape)
+        cls_token_final = x[:, 0]
+        # print(cls_token_final.size())
+        #return self.pre_logits(x[:, 0])
+        return cls_token_final
+    
+
+    def forward(self, x,frames):
+        x = self.forward_features(x)
+        frames = self.align_dimension(frames)
+        # frames = frames.unsqueeze(0).view(-1,1,768) #to reshape 1 channel
+        
+        # frames = self.conv1d(frames) 
+        # frames = self.global_avgpool(frames).squeeze(2) #because it generates (batch,64,1)
+
+        fusion = torch.concat([x,frames],dim=1)
+        x = self.head(fusion)
+    
+        x = F.log_softmax(x, dim=1)
+        return x
+
+
+"""
+
+Temporal only for cross attention
+
+"""
+
+
+
+class TemporalTransformer_CrossAttention(TemporalTransformer):
+    def __init__(self, *args,**kwargs):
+        """    ##########hybrid_backbone=None, representation_size=None,
+        Args:
+            num_classes (int): number of classes for classification head, HR-Crime constists of 13 crime categories
+            num_frames (int): number of input frames
+            num_joints (int): number of joints per skeleton
+            in_chans (int): number of input channels, 2D joints have 2 channels: (x,y)
+            embed_dim_ratio (int): embedding dimension ratio
+            depth (int): depth of transformer
+            num_heads (int): number of attention heads
+            mlp_ratio (int): ratio of mlp hidden dim to embedding dim
+            qkv_bias (bool): enable bias for qkv if True
+            qk_scale (float): override default qk scale of head_dim ** -0.5 if set
+            drop_rate (float): dropout rate
+            attn_drop_rate (float): attention dropout rate
+            drop_path_rate (float): stochastic depth rate
+        """
+        super().__init__(*args, **kwargs)
+
+        # self.embedding = nn.Linear(num_joints*in_chans, embed_dim//2)
+
+        self.align_dimension = nn.Linear(768,kwargs["embed_dim"]) # this is for the frames
+        self.head = nn.Linear(kwargs["embed_dim"],kwargs["num_classes"])
+        # self.pos_embed = nn.Parameter(torch.zeros(kwargs["num_frames"]+2, kwargs["embed_dim"]))
+        # initialize weights
+        self.init_weights()
+
+        self.cross_attention_block = nn.ModuleList([
+            CrossAttentionBlock(
+                dim=64, num_heads=4
+                )
+            for i in range(3)])
+        # taken from https://pytorch.org/tutorials/beginner/transformer_tutorial.html
+    def init_weights(self):
+          initrange = 0.1
+          self.embedding.weight.data.uniform_(-initrange, initrange)
+          self.head.bias.data.zero_()
+          self.head.weight.data.uniform_(-initrange, initrange)
+
+    def forward_features(self, x):
+
+        #print("call forward features")
+        # print(f"x shape: {x.shape}")
+
+        x = self.embedding(x)
+
+        #print(f"self cls_token shape: {self.cls_token.shape}")
+
+        #print("expand cls_token")
+        cls_token = self.cls_token.expand(x.shape[0], -1, -1)  # stole cls_tokens impl from Phil Wang, thanks
+        # print(f"Cls token {cls_token.shape}")
+        #print(f"expanded cls_token shape: {cls_token.shape}")
+        #print(f"embedded x shape: {x.shape}")
+
+        x = torch.cat((cls_token, x), dim=1)
+        # print(x.shape)
+        #print(f"embedded x + cls_token shape: {x.shape}")
+
+        #print(f"pos_embed shape: {self.pos_embed.shape}")
+        #print(f"x + self.pos_embed shape: {(x + self.pos_embed).shape}")
+
+        x = self.pos_drop(x + self.pos_embed)
+        # print(f"pos_drop x shape: {x.shape}")
+
+        #x = self.blocks(x)
+        for blk in self.blocks:
+            x = blk(x)
+            #print(f"blocks(x) shape: {x.shape}")
+
+        x = self.norm(x)
+
+        return x
+    
+
+    def forward(self, x,frames):
+        x = self.forward_features(x)
+
+        frames = self.align_dimension(frames)
+        
+        for i in self.cross_attention_block:
+            x = i(x,frames)
+        x = self.head(x)
+        x = x[:,0]
+        x = F.log_softmax(x, dim=1)
+        return x

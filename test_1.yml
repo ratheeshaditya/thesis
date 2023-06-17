@@ -2,7 +2,7 @@
 META:
   # NAME : tubelet_part_transformer_1 #check batch size
   # NAME : HRC_tubelet_temporal_1 #check batch size
-  NAME : crossattentioncontssextssssssfix_6611_fusion_1_temporal_32222_with_attention_250
+  NAME : temporal_transformer_keyliegh_attention_tests12
 
 # META:
 #   NAME : test_NTU_3D_ttspcc2_833_11        #folder name to store trained model and results
@@ -11,8 +11,14 @@ MODEL:
   MODEL_TYPE : temporal   #type of model to train, temporal, temporal_2, temporal_3, temporal_4, spatial-temporal or parts
   EMBED_DIM : 64           #embedding dimension used by the model
   SEGMENT_LEN : 20          #length of sliding window (no.of frames)
-  DEBUG : TRUE              #load subset of trajectories in debug mode
+  DEBUG : FALSE              #load subset of trajectories in debug mode
   DATASET : HRC          #dataset used HR-Crime/UTK/NTU_2D/NTU_3D
+  MULTI_MODAL_SETTING : FALSE #Enabling this will process images as well in the dataset
+STRATIFIED_SPLIT: #Only if debug is on
+  train_split : 0.2
+  test_split : 0.2
+
+
 
 DECOMPOSED:
   ENABLE: FALSE                #whether to use globally and locally decomposed trajectories
@@ -25,10 +31,22 @@ TUBELET:                    #whether to use tubelet embeddings or not
   PAD_MODE: constant      #Could be constant, replicate, reflect
 
 TRAINING:
-  EPOCHS : 10              #maximum number of epochs during training
-  BATCH_SIZE : 200         #batch size for training
+  EPOCHS : 50              #maximum number of epochs during training
+  BATCH_SIZE : 500         #batch size for training
   PATIENCE : 3             #patience before early stopping is enabled
   LR : 0.0001                #starting learning rate for adaptive learning
   LR_PATIENCE : 3           #patience before learning rate is decreased
   KFOLD: 2                  #number of folds used for cross-validation
   WEIGHT_DECAY: 0           #weight decay value
+
+FUSION:
+  FUSION_TYPE : el
+
+DATALOADING:
+  NUM_WORKERS : 16
+  PIN_MEMORY : FALSE
+  PERSISTENT_WORKERS : FALSE
+
+
+CROSS_ATTENTION:
+  CROSS_ATTENTION_ENABLE: TRUE #

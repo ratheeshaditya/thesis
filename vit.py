@@ -194,7 +194,7 @@ class VisionTransformer(nn.Module):
         self.num_classes = num_classes
         self.representation_size = representation_size
         self.norm_layer = norm_layer
-
+        self.img_output = None
         if conv_stem_configs is not None:
             # As per https://arxiv.org/abs/2106.14881
             seq_proj = nn.Sequential()
@@ -310,7 +310,7 @@ class VisionTransformer(nn.Module):
         x = x[:, 0]
 
         x = self.heads(x)
-
+        self.img_output = x
         return x
 
 

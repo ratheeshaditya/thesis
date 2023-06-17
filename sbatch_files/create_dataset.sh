@@ -2,12 +2,11 @@
 # parameters for slurm
 #SBATCH -J training                   # job name, don't use spaces, keep it short
 #SBATCH -c 16                          # number of cores, 1
-#SBATCH --gres=gpu:1                  # number of gpus 1, some clusters don't have GPUs
 #SBATCH --mem=64gb                     # Job memory request
 #SBATCH --mail-type=END,FAIL          # email status changes (NONE, BEGIN, END, FAIL, ALL)
 #SBATCH --output=/home/s2765918/code-et/out/training_%j.log      # Standard output and error log
 #SBATCH --error=/home/s2765918/code-et/out/training_%j.err                # if yoou want the errors logged seperately
-#SBATCH --partition=dmb # Here 50..is the partition name..can be checked via sinfo
+#SBATCH --partition=main # Here 50..is the partition name..can be checked via sinfo
 
 
 # Maximum that worked - c:32, mem:64, gpu:1 
@@ -16,7 +15,7 @@ echo $PWD
  
 # load all modules needed 
 # module load nvidia/cuda-10.2
-module load nvidia/cuda-11.3
+
  
 # It's nice to have some information logged for debugging
 echo "Date              = $(date)"
@@ -36,6 +35,6 @@ echo $CONDA_DEFAULT_ENV
 
 
 # python -u ../train_transformer_cross_val_NTU.py --filename training_NTU_2D_128d_100e_10p_001 --lr 0.001 --embed_dim 128 --dataset NTU_2D --model_type temporal --epochs 100 --patience 10
-python -u ../train_transformer_cross_val_NTU.py --config_file ../test_1.yml
+python -u ../create_dataset.py 
 # python -u ../train_transformer_cross_val_NTU.py --filename temporal_2 --lr 0.001 --embed_dim 128 --dataset NTU_2D --model_type temporal_2 --epochs 100 --patience 10 --batch_size 2000
 # python -u ../train_transformer_cross_val_NTU.py --config_file ../config.yml

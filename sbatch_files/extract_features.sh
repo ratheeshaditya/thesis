@@ -1,7 +1,7 @@
 #!/bin/bash
 # parameters for slurm
 #SBATCH -J training                   # job name, don't use spaces, keep it short
-#SBATCH -c 16                          # number of cores, 1
+#SBATCH -c 32                          # number of cores, 1
 #SBATCH --gres=gpu:1                  # number of gpus 1, some clusters don't have GPUs
 #SBATCH --mem=64gb                     # Job memory request
 #SBATCH --mail-type=END,FAIL          # email status changes (NONE, BEGIN, END, FAIL, ALL)
@@ -35,7 +35,4 @@ echo $CONDA_DEFAULT_ENV
 
 
 
-# python -u ../train_transformer_cross_val_NTU.py --filename training_NTU_2D_128d_100e_10p_001 --lr 0.001 --embed_dim 128 --dataset NTU_2D --model_type temporal --epochs 100 --patience 10
-python -u ../train_transformer_cross_val_NTU.py --config_file ../test_1.yml
-# python -u ../train_transformer_cross_val_NTU.py --filename temporal_2 --lr 0.001 --embed_dim 128 --dataset NTU_2D --model_type temporal_2 --epochs 100 --patience 10 --batch_size 2000
-# python -u ../train_transformer_cross_val_NTU.py --config_file ../config.yml
+python -u ../extract_features.py
